@@ -1,18 +1,15 @@
 import { Application, Router } from "oak/mod.ts";
 import * as db from "./lib/db.ts";
-import { COOKIE_PREFIX, DEFAULT, GameCfg } from "./lib/types.ts";
+import { COOKIE_PREFIX, DEFAULT, PORT, GameCfg } from "./lib/types.ts";
 import { decode, encode } from "./lib/id_cipher.ts";
 import { toMilliseconds } from "./lib/helpers.ts";
 
-const PORT = 8020;
 const router = new Router();
-
 router
   .get("/", (ctx) => {
     ctx.response.body = "Hello world!";
   })
   .post("/create", async (ctx) => {
-    // TODO: implement join, implement game id maker
     const params: URLSearchParams = await ctx.request.body().value,
       name = params.get("name");
     if (!name || name.length === 0) {
