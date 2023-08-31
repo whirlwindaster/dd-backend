@@ -15,5 +15,5 @@ export const DEFAULT: GameCfg = {
   post_bid_timeout: 60,
   demo_timeout: 30,
 };
-
 export const COOKIE_PREFIX = "DEFDRONES_";
+export const PORT = 8020;

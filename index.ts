@@ -6,8 +6,15 @@ import { toMilliseconds } from "./lib/helpers.ts";
 
 const router = new Router();
 router
-  .get("/", (ctx) => {
-    ctx.response.body = "Hello world!";
+  .get("/ws", async (ctx) => {
+    if (!ctx.isUpgradable) {
+      ctx.throw(501);
+    }
+
+    const ws = ctx.upgrade();
+    ws.onopen = () => {
+      console.log('ws opend');
+    }
   })
   .post("/create", async (ctx) => {
     const params: URLSearchParams = await ctx.request.body().value,
@@ -42,6 +49,7 @@ router
     };
 
     try {
+      // make game first (player row needs a matching game_id)
       const game_id_decoded = (await db.insert("game", game_cfg, ["id"]))[0].id,
         uuid = (await db.insert("player", {
           name: name,
@@ -53,7 +61,8 @@ router
       ctx.cookies.set(`${COOKIE_PREFIX}uuid`, uuid.toString());
       ctx.response.status = 201;
       ctx.response.redirect(
-        `${ctx.request.headers.get("Referer")}${encode(game_id_decoded)}`,
+        // styled url
+        `${ctx.request.headers.get("Referer")}er/${encode(game_id_decoded)}`,
       );
     } catch (error) {
       console.log(error);
@@ -81,14 +90,15 @@ router
       const uuid = (await db.insert("player", {
         name: name,
         game_id: decode(game_id_encoded),
-        is_host: true,
+        is_host: false,
       }, ["uuid"]))[0].uuid;
 
       ctx.cookies.set(`${COOKIE_PREFIX}name`, name);
       ctx.cookies.set(`${COOKIE_PREFIX}uuid`, uuid.toString());
       ctx.response.status = 201;
       ctx.response.redirect(
-        `${ctx.request.headers.get("Referer")}${game_id_encoded}`,
+        // styled url
+        `${ctx.request.headers.get("Referer")}er/${game_id_encoded}`,
       );
     } catch (error) {
       console.log(error);
@@ -103,7 +113,7 @@ app.use(router.routes());
 app.use(router.allowedMethods());
 
 app.addEventListener("listen", () => {
-  console.log(`Listening on: localhost:${PORT}`);
+  console.log(`Listening on localhost:${PORT}`);
 });
 
 await app.listen({ port: PORT });
