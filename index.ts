@@ -1,28 +1,112 @@
-import { serve } from "std/http/mod.ts";
+import { Application, Router } from "oak/mod.ts";
+import * as db from "./lib/db.ts";
+import { COOKIE_PREFIX, DEFAULT, GameCfg } from "./lib/types.ts";
+import { decode, encode } from "./lib/id_cipher.ts";
+import { toMilliseconds } from "./lib/helpers.ts";
 
-function reqHandler(req: Request) {
-  if (req.headers.get("upgrade") != "websocket") {
-    return new Response(null, { status: 501 });
-  }
-  const { socket: ws, response } = Deno.upgradeWebSocket(req);
+const PORT = 8020;
+const router = new Router();
 
-  ws.onopen = () => {
-    console.log("ws opened");
-  };
+router
+  .get("/", (ctx) => {
+    ctx.response.body = "Hello world!";
+  })
+  .post("/create", async (ctx) => {
+    // TODO: implement join, implement game id maker
+    const params: URLSearchParams = await ctx.request.body().value,
+      name = params.get("name");
+    if (!name || name.length === 0) {
+      ctx.response.status = 400;
+      ctx.response.redirect(`${ctx.request.headers.get("Referer")}`);
+      return;
+    }
+    const game_cfg: GameCfg = {
+      num_rounds: params.has("num_rounds")
+        ? parseInt(params.get("num_rounds")!)
+        : DEFAULT.num_rounds,
+      board_setup_num: params.has("board_setup_num")
+        ? parseInt(params.get("board_setup_num")!)
+        : DEFAULT.board_setup_num,
+      pre_bid_timeout: toMilliseconds(
+        params.has("pre_bid_timeout")
+          ? parseInt(params.get("pre_bid_timeout")!)
+          : DEFAULT.pre_bid_timeout,
+      ),
+      post_bid_timeout: toMilliseconds(
+        params.has("post_bid_timeout")
+          ? parseInt(params.get("post_bid_timeout")!)
+          : DEFAULT.post_bid_timeout,
+      ),
+      demo_timeout: toMilliseconds(
+        params.has("pre_big_timeout")
+          ? parseInt(params.get("pre_bid_timeout")!)
+          : DEFAULT.demo_timeout,
+      ),
+    };
 
-  ws.onmessage = (m) => {
-    console.log(m);
-  };
+    try {
+      const game_id_decoded = (await db.insert("game", game_cfg, ["id"]))[0].id,
+        uuid = (await db.insert("player", {
+          name: name,
+          game_id: game_id_decoded,
+          is_host: true,
+        }, ["uuid"]))[0].uuid;
 
-  ws.onerror = (err) => {
-    console.log(err);
-  };
+      ctx.cookies.set(`${COOKIE_PREFIX}name`, name);
+      ctx.cookies.set(`${COOKIE_PREFIX}uuid`, uuid.toString());
+      ctx.response.status = 201;
+      ctx.response.redirect(
+        `${ctx.request.headers.get("Referer")}${encode(game_id_decoded)}`,
+      );
+    } catch (error) {
+      console.log(error);
+      ctx.response.status = 400;
+      ctx.response.body = error;
+      ctx.response.redirect(`${ctx.request.headers.get("Referer")}`);
+    }
+  })
+  .post("/join", async (ctx) => {
+    const params: URLSearchParams = await ctx.request.body().value,
+      name = params.get("name"),
+      game_id_encoded = params.get("game_code");
+    if (
+      !name ||
+      !game_id_encoded ||
+      name.length === 0 ||
+      game_id_encoded.length === 0
+    ) {
+      ctx.response.status = 400;
+      ctx.response.redirect(`${ctx.request.headers.get("Referer")}`);
+      return;
+    }
 
-  ws.onclose = () => {
-    console.log("ws closed");
-  };
+    try {
+      const uuid = (await db.insert("player", {
+        name: name,
+        game_id: decode(game_id_encoded),
+        is_host: true,
+      }, ["uuid"]))[0].uuid;
 
-  return response;
-}
+      ctx.cookies.set(`${COOKIE_PREFIX}name`, name);
+      ctx.cookies.set(`${COOKIE_PREFIX}uuid`, uuid.toString());
+      ctx.response.status = 201;
+      ctx.response.redirect(
+        `${ctx.request.headers.get("Referer")}${game_id_encoded}`,
+      );
+    } catch (error) {
+      console.log(error);
+      ctx.response.status = 400;
+      ctx.response.body = error;
+      ctx.response.redirect(`${ctx.request.headers.get("Referer")}`);
+    }
+  });
 
-serve(reqHandler, { port: 8020 });
+const app = new Application();
+app.use(router.routes());
+app.use(router.allowedMethods());
+
+app.addEventListener("listen", () => {
+  console.log(`Listening on: localhost:${PORT}`);
+});
+
+await app.listen({ port: PORT });
