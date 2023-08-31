@@ -16,6 +16,7 @@ export async function select(
   for (const col of select_columns) {
     select_string = `${select_string}${col},`;
   }
+  select_string = select_string.substring(0, select_string.length - 1);
 
   const { data, error } = await supabase_client
     .from(`${table}`)
