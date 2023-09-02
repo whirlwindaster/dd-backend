@@ -1,61 +1,61 @@
 // deno-lint-ignore-file no-explicit-any
+// TODO: fix types here. i know you can do it
 import { createClient } from "supabase";
 import "$std/dotenv/load.ts";
-import { Table } from "./types.ts";
+import { Table, GameTableColumn, PlayerTableColumn, GameInsertValues, PlayerInsertValues } from "./types.ts";
 
-const supabase_url = Deno.env.get("SUPABASE_URL")!;
-const supabase_key = Deno.env.get("SUPABASE_KEY")!;
-const supabase_client = createClient(supabase_url, supabase_key);
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const SUPABASE_KEY = Deno.env.get("SUPABASE_KEY")!;
+const supabase_client = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-export async function select(
-  table: Table,
-  select_columns: string[],
-  where: { column: string; equals: string | number | boolean },
+export async function selectFromGame(
+  where: { column: GameTableColumn; equals: string | number | boolean }
 ) {
-  let select_string = "";
-  for (const col of select_columns) {
-    select_string = `${select_string}${col},`;
-  }
-  select_string = select_string.substring(0, select_string.length - 1);
-
   const { data, error } = await supabase_client
-    .from(`${table}`)
-    .select(select_string)
+    .from("game")
+    .select()
     .eq(where.column, where.equals);
 
   if (error) throw new Error(error.message);
-  return data;
+  return data[0];
 }
 
-export async function insert(
-  table: Table,
-  values: any,
-  select_columns?: string[],
+export async function selectFromPlayer(
+  where: { column: PlayerTableColumn; equals: string | number | boolean }
 ) {
-  if (select_columns) {
-    let select_string = "";
-    for (const col of select_columns) {
-      select_string = `${select_string}${col},`;
-    }
-    select_string = select_string.substring(0, select_string.length - 1);
-
-    const { data, error } = await supabase_client
-      .from(`${table}`)
-      .insert([
-        values,
-      ])
-      .select(select_string);
-
-    if (error) throw new Error(error.message);
-    return data;
-  }
   const { data, error } = await supabase_client
-    .from(`${table}`)
+    .from("player")
+    .select()
+    .eq(where.column, where.equals);
+
+  if (error) throw new Error(error.message);
+  return data[0];
+}
+
+export async function insertIntoGame(
+  values: GameInsertValues
+) {
+  const { data, error } = await supabase_client
+    .from("game")
     .insert([
       values,
     ])
     .select();
 
   if (error) throw new Error(error.message);
-  return data;
+  return data[0];
+}
+
+export async function insertIntoPlayer(
+  values: PlayerInsertValues
+) {
+  const { data, error } = await supabase_client
+    .from("player")
+    .insert([
+      values,
+    ])
+    .select();
+
+  if (error) throw new Error(error.message);
+  return data[0];
 }

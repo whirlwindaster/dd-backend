@@ -1,21 +1,57 @@
 import { Application, Router } from "oak/mod.ts";
 import * as db from "./lib/db.ts";
-import { COOKIE_PREFIX, DEFAULT, PORT, GameCfg } from "./lib/types.ts";
+import { DEFAULT, GameInsertValues } from "./lib/types.ts";
 import { decode, encode } from "./lib/id_cipher.ts";
-import { toMilliseconds } from "./lib/helpers.ts";
+import { toMilliseconds, wsSend } from "./lib/helpers.ts";
+import "$std/dotenv/load.ts";
+import { active_games, gameFactory } from "./game/game.ts";
+
+export const ws_uuid_map = new Map<WebSocket, string>();
 
 const router = new Router();
 router
+
   .get("/ws", async (ctx) => {
     if (!ctx.isUpgradable) {
       ctx.throw(501);
     }
+  
+    const name = await ctx.cookies.get(`${Deno.env.get("COOKIE_PREFIX")}name`),
+      uuid = await ctx.cookies.get(`${Deno.env.get("COOKIE_PREFIX")}uuid`);
+    if (!(name && uuid)) {
+      ctx.throw(400);
+    }
+    const player_info = (await db.selectFromPlayer({ column: "uuid", equals: uuid! }));
+    if (!(player_info.game_id)) {
+      ctx.throw(403);
+    }
+    const game = active_games.get(player_info.game_id)
+    if (!game) {
+      ctx.throw(500);
+    }
 
     const ws = ctx.upgrade();
     ws.onopen = () => {
-      console.log('ws opend');
+      game!.addPlayer({
+        name: name!,
+        uuid: uuid!,
+        game_id: player_info.game_id
+      }, ws);
+      wsSend(ws, {
+        category: "game_code",
+        game_code: encode(player_info.game_id)
+      });
+      if (player_info.is_host) {
+        wsSend(ws, {
+          category: "you_are_host"
+        })
+      }
+    }
+    ws.onmessage = (m) => {
+      console.log(m);
     }
   })
+
   .post("/create", async (ctx) => {
     const params: URLSearchParams = await ctx.request.body().value,
       name = params.get("name");
@@ -24,7 +60,7 @@ router
       ctx.response.redirect(`${ctx.request.headers.get("Referer")}`);
       return;
     }
-    const game_cfg: GameCfg = {
+    const game_cfg: GameInsertValues = {
       num_rounds: params.has("num_rounds")
         ? parseInt(params.get("num_rounds")!)
         : DEFAULT.num_rounds,
@@ -49,20 +85,22 @@ router
     };
 
     try {
-      // make game first (player row needs a matching game_id)
-      const game_id_decoded = (await db.insert("game", game_cfg, ["id"]))[0].id,
-        uuid = (await db.insert("player", {
+      // make game row first (player row needs a matching game_id)
+      const game_id_decoded = (await db.insertIntoGame(game_cfg)).id,
+        uuid = (await db.insertIntoPlayer({
           name: name,
           game_id: game_id_decoded,
           is_host: true,
-        }, ["uuid"]))[0].uuid;
+        })).uuid;
 
-      ctx.cookies.set(`${COOKIE_PREFIX}name`, name);
-      ctx.cookies.set(`${COOKIE_PREFIX}uuid`, uuid.toString());
+      // TODO: do game instance stuff
+      gameFactory({ name: name, game_id: game_id_decoded, uuid: uuid }, game_cfg);
+      ctx.cookies.set(`${Deno.env.get("COOKIE_PREFIX")}name`, name);
+      ctx.cookies.set(`${Deno.env.get("COOKIE_PREFIX")}uuid`, uuid.toString());
       ctx.response.status = 201;
       ctx.response.redirect(
         // styled url
-        `${ctx.request.headers.get("Referer")}er/${encode(game_id_decoded)}`,
+        `${ctx.request.headers.get("Referer")}er/game`,
       );
     } catch (error) {
       console.log(error);
@@ -71,6 +109,7 @@ router
       ctx.response.redirect(`${ctx.request.headers.get("Referer")}`);
     }
   })
+
   .post("/join", async (ctx) => {
     const params: URLSearchParams = await ctx.request.body().value,
       name = params.get("name"),
@@ -87,18 +126,18 @@ router
     }
 
     try {
-      const uuid = (await db.insert("player", {
+      const uuid = (await db.insertIntoPlayer({
         name: name,
-        game_id: decode(game_id_encoded),
+        game_id: decode(game_id_encoded)!,
         is_host: false,
-      }, ["uuid"]))[0].uuid;
+      })).uuid;
 
-      ctx.cookies.set(`${COOKIE_PREFIX}name`, name);
-      ctx.cookies.set(`${COOKIE_PREFIX}uuid`, uuid.toString());
+      ctx.cookies.set(`${Deno.env.get("COOKIE_PREFIX")}name`, name);
+      ctx.cookies.set(`${Deno.env.get("COOKIE_PREFIX")}uuid`, uuid.toString());
       ctx.response.status = 201;
       ctx.response.redirect(
         // styled url
-        `${ctx.request.headers.get("Referer")}er/${game_id_encoded}`,
+        `${ctx.request.headers.get("Referer")}er/game`,
       );
     } catch (error) {
       console.log(error);
@@ -113,7 +152,7 @@ app.use(router.routes());
 app.use(router.allowedMethods());
 
 app.addEventListener("listen", () => {
-  console.log(`Listening on localhost:${PORT}`);
+  console.log(`Listening on localhost:${Deno.env.get("PORT")}`);
 });
 
-await app.listen({ port: PORT });
+await app.listen({ port: parseInt(Deno.env.get("PORT")!) });
