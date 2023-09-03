@@ -5,6 +5,17 @@ export type PlayerTableColumn = "id" | "game_id" | "name" | "is_host" | "uuid";
 
 export type GamePhase =  'join' | 'guess' | 'demonstrate' | 'cleanup' | 'end'
 
+export type RobotColor = keyof RobotPositions; // "r" | "y" | "g" | "u" | "b"
+export type GoalColor = "r" | "y" | "g" | "u" | "m";
+export type GoalShape = "vortex" | "crescent" | "star" | "gear" | "planet";
+
+export type Direction = "up" | "down" | "left" | "right";
+
+export interface Coordinate {
+  x: number,
+  y: number
+}
+
 export interface PlayerInsertValues {
   name: string,
   game_id: number,
@@ -24,10 +35,20 @@ export interface PlayerInfo extends PlayerInsertValues {
 }
 
 export interface MessageToPlayer {
-  category: "log" | "game_code" | "you_are_host" | "players_update",
-  log?: string
-  game_code?: string
-  player_names?: string
+  category: "log" | "game_code" | "you_are_host" | "players_update" | "wall_pos" | "goal_pos" | "robot_pos",
+  log?: string,
+  game_code?: string,
+  player_names?: string,
+  wall?: "both" | "left" | "bottom",
+  goal_specs?: GoalSpecs,
+  robot_color?: RobotColor | "",
+  coord?: Coordinate,
+  old_coord?: Coordinate,
+}
+
+export interface GoalSpecs {
+  color: GoalColor | "",
+  shape: GoalShape | ""
 }
 
 export interface MessageToAPI {
@@ -47,3 +68,36 @@ export const DEFAULT: GameInsertValues = {
   post_bid_timeout: 60,
   demo_timeout: 30,
 };
+
+export interface Goal {
+  color: GoalColor
+  shape: GoalShape
+  coord: Coordinate
+}
+
+export interface Tile {
+  rightWall: boolean,
+  bottomWall: boolean,
+  robot: RobotColor | null,
+  goal: Goal | null,
+  coord: Coordinate
+}
+
+export interface Guess {
+  uuid: string,
+  moves: number,
+  timestamp: number
+}
+
+export interface BoardSetup {
+  tiles: Tile[][],
+  goals: Goal[]
+}
+
+export interface RobotPositions {
+  r: Coordinate,
+  y: Coordinate,
+  g: Coordinate,
+  u: Coordinate,
+  b: Coordinate
+}

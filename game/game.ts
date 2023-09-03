@@ -1,5 +1,5 @@
 import { KeyStack } from "oak/deps.ts";
-import { GameInsertValues, GameState, MessageToPlayer, PlayerInfo } from "../lib/types.ts";
+import { GameInsertValues, GameState, Goal, MessageToPlayer, PlayerInfo, Tile } from "../lib/types.ts";
 import { Player } from "./player.ts";
 
 export const active_games = new Map<number, Game>();
@@ -23,6 +23,7 @@ export class Game {
     timer: -1
   };
 
+
   constructor(host_info: PlayerInfo, config: GameInsertValues) {
     this.id = host_info.game_id;
     this.host_uuid = host_info.uuid;
@@ -42,6 +43,12 @@ export class Game {
       player_names: names.substring(0, names.length-1)
     });
   }
+
+  deletePlayer(uuid: string) {
+    this.players.delete(uuid);
+  }
+
+
 
   #sendToAllPlayers(message: MessageToPlayer) {
     this.players.forEach((p) => p.send(message));
