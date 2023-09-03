@@ -8,6 +8,7 @@ export function toSeconds(milliseconds: number) {
   return milliseconds / 1000;
 }
 
+// we could make this take an array of messages in order to send multiple messages at once
 export function wsSend(ws: WebSocket, message: MessageToPlayer) {
   if (ws.readyState !== 1) {
     return;

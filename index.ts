@@ -44,8 +44,18 @@ router
       if (player_info.is_host) {
         wsSend(ws, {
           category: "you_are_host"
-        })
+        });
       }
+      wsSend(ws, {
+        category: "goal_pos",
+        coord: {x: 1, y: 3},
+        goal_specs: { color: "g", shape: "planet" }
+      });
+      wsSend(ws, {
+        category: "robot_pos",
+        coord: {x: 1, y: 3},
+        robot_color: "r"
+      });
     }
     ws.onmessage = (m) => {
       console.log(m);
