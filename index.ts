@@ -2,7 +2,7 @@ import { Application, Router } from "oak/mod.ts";
 import * as db from "./lib/db.ts";
 import { DEFAULT, GameInsertValues } from "./lib/types.ts";
 import { decode, encode } from "./lib/id_cipher.ts";
-import { toMilliseconds, wsSend } from "./lib/helpers.ts";
+import { parseMessage, toMilliseconds, wsSend } from "./lib/helpers.ts";
 import "$std/dotenv/load.ts";
 import { active_games, gameFactory } from "./game/game.ts";
 import { cookieMapHeadersInitSymbol } from "https://deno.land/std@0.188.0/http/cookie_map.ts";
@@ -73,7 +73,8 @@ router
       }
     };
     ws.onmessage = (m) => {
-      console.log(m);
+      const message = parseMessage(m);
+      game!.gameEvent(uuid!, message)
     };
   })
   .post("/create", async (ctx) => {

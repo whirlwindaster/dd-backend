@@ -11,7 +11,7 @@ export type GameTableColumn =
   | "demo_timeout";
 export type PlayerTableColumn = "id" | "game_id" | "name" | "is_host" | "uuid";
 
-export type GamePhase = "join" | "guess" | "demonstrate" | "cleanup" | "end";
+export type GamePhase = "join" | "bid" | "demonstrate" | "cleanup" | "end";
 
 export type RobotColor = keyof RobotPositions; // "r" | "y" | "g" | "u" | "b"
 export type GoalColor = "r" | "y" | "g" | "u" | "m";
@@ -57,24 +57,28 @@ export interface MessageToPlayer {
   bottom_wall?: boolean;
   right_wall?: boolean;
   goal_specs?: GoalSpecs;
-  robot_color?: RobotColor | "";
+  robot_color?: RobotColor;
   coord?: Coordinate;
   old_coord?: Coordinate;
 }
 
 export interface GoalSpecs {
   color: GoalColor | "";
-  shape: GoalShape | "";
+  shape: GoalShape | ""
 }
 
 export interface MessageToAPI {
-  category: "start";
+  category: "start" | "next_round" | "bid" | "move";
+  num_moves?: number;
+  robot?: RobotColor;
+  direction?: Direction;
 }
 
 export interface GameState {
   phase: GamePhase;
   round: number;
-  timer: number;
+  timeout: number;
+  interval: number;
 }
 
 export const DEFAULT: GameInsertValues = {
@@ -82,7 +86,7 @@ export const DEFAULT: GameInsertValues = {
   board_setup_num: 1,
   pre_bid_timeout: 300,
   post_bid_timeout: 60,
-  demo_timeout: 30,
+  demo_timeout: 30
 };
 
 export interface Goal {
@@ -99,7 +103,7 @@ export interface Tile {
   coord: Coordinate;
 }
 
-export interface Guess {
+export interface Bid {
   uuid: string;
   moves: number;
   timestamp: number;
