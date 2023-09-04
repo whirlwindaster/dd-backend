@@ -2,14 +2,20 @@
 // TODO: fix types here. i know you can do it
 import { createClient } from "supabase";
 import "$std/dotenv/load.ts";
-import { Table, GameTableColumn, PlayerTableColumn, GameInsertValues, PlayerInsertValues } from "./types.ts";
+import {
+  GameInsertValues,
+  GameTableColumn,
+  PlayerInsertValues,
+  PlayerTableColumn,
+  Table,
+} from "./types.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_KEY = Deno.env.get("SUPABASE_KEY")!;
 const supabase_client = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 export async function selectFromGame(
-  where: { column: GameTableColumn; equals: string | number | boolean }
+  where: { column: GameTableColumn; equals: string | number | boolean },
 ) {
   const { data, error } = await supabase_client
     .from("game")
@@ -21,7 +27,7 @@ export async function selectFromGame(
 }
 
 export async function selectFromPlayer(
-  where: { column: PlayerTableColumn; equals: string | number | boolean }
+  where: { column: PlayerTableColumn; equals: string | number | boolean },
 ) {
   const { data, error } = await supabase_client
     .from("player")
@@ -33,7 +39,7 @@ export async function selectFromPlayer(
 }
 
 export async function insertIntoGame(
-  values: GameInsertValues
+  values: GameInsertValues,
 ) {
   const { data, error } = await supabase_client
     .from("game")
@@ -47,7 +53,7 @@ export async function insertIntoGame(
 }
 
 export async function insertIntoPlayer(
-  values: PlayerInsertValues
+  values: PlayerInsertValues,
 ) {
   const { data, error } = await supabase_client
     .from("player")

@@ -1,13 +1,23 @@
-import { KeyStack } from "oak/deps.ts";
-import { GameInsertValues, GameState, Goal, MessageToPlayer, PlayerInfo, Tile } from "../lib/types.ts";
+import {
+  GameInsertValues,
+  GameState,
+  Goal,
+  MessageToPlayer,
+  PlayerInfo,
+  Tile,
+} from "../lib/types.ts";
 import { Player } from "./player.ts";
+import Board from "./board.ts";
 
 export const active_games = new Map<number, Game>();
 
-export function gameFactory( player_info: PlayerInfo, config: GameInsertValues ): Game {
+export function gameFactory(
+  player_info: PlayerInfo,
+  config: GameInsertValues,
+): Game {
   if (!active_games.has(player_info.game_id)) {
-      const game = new Game(player_info, config);
-      active_games.set(player_info.game_id, game);
+    const game = new Game(player_info, config);
+    active_games.set(player_info.game_id, game);
   }
   return active_games.get(player_info.game_id)!;
 }
@@ -16,18 +26,19 @@ export class Game {
   id: number;
   host_uuid: string;
   config: GameInsertValues;
+  board: Board;
   players = new Map<string, Player>();
-  state : GameState = {
-    phase: 'join',
+  state: GameState = {
+    phase: "join",
     round: 0,
-    timer: -1
+    timer: -1,
   };
-
 
   constructor(host_info: PlayerInfo, config: GameInsertValues) {
     this.id = host_info.game_id;
     this.host_uuid = host_info.uuid;
     this.config = config;
+    this.board = new Board(config.board_setup_num);
     // prefer to access players by uuid rather than name, id, etc
   }
 
@@ -40,7 +51,7 @@ export class Game {
     }
     this.#sendToAllPlayers({
       category: "players_update",
-      player_names: names.substring(0, names.length-1)
+      player_names: names.substring(0, names.length - 1),
     });
   }
 
@@ -48,11 +59,7 @@ export class Game {
     this.players.delete(uuid);
   }
 
-
-
   #sendToAllPlayers(message: MessageToPlayer) {
     this.players.forEach((p) => p.send(message));
   }
-
-
 }
