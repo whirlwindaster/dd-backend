@@ -5,27 +5,30 @@ import { decode, encode } from "./lib/id_cipher.ts";
 import { toMilliseconds, wsSend } from "./lib/helpers.ts";
 import "$std/dotenv/load.ts";
 import { active_games, gameFactory } from "./game/game.ts";
+import { cookieMapHeadersInitSymbol } from "https://deno.land/std@0.188.0/http/cookie_map.ts";
 
 export const ws_uuid_map = new Map<WebSocket, string>();
 
 const router = new Router();
 router
-
   .get("/ws", async (ctx) => {
     if (!ctx.isUpgradable) {
       ctx.throw(501);
     }
-  
+
     const name = await ctx.cookies.get(`${Deno.env.get("COOKIE_PREFIX")}name`),
       uuid = await ctx.cookies.get(`${Deno.env.get("COOKIE_PREFIX")}uuid`);
     if (!(name && uuid)) {
       ctx.throw(400);
     }
-    const player_info = (await db.selectFromPlayer({ column: "uuid", equals: uuid! }));
+    const player_info = await db.selectFromPlayer({
+      column: "uuid",
+      equals: uuid!,
+    });
     if (!(player_info.game_id)) {
       ctx.throw(403);
     }
-    const game = active_games.get(player_info.game_id)
+    const game = active_games.get(player_info.game_id);
     if (!game) {
       ctx.throw(500);
     }
@@ -35,33 +38,44 @@ router
       game!.addPlayer({
         name: name!,
         uuid: uuid!,
-        game_id: player_info.game_id
+        game_id: player_info.game_id,
       }, ws);
-      wsSend(ws, {
+
+      wsSend(ws, [{
         category: "game_code",
-        game_code: encode(player_info.game_id)
-      });
+        game_code: encode(player_info.game_id),
+      }]);
+
       if (player_info.is_host) {
-        wsSend(ws, {
-          category: "you_are_host"
-        });
+        wsSend(ws, [{
+          category: "you_are_host",
+        }]);
       }
-      wsSend(ws, {
-        category: "goal_pos",
-        coord: {x: 1, y: 3},
-        goal_specs: { color: "g", shape: "planet" }
-      });
-      wsSend(ws, {
-        category: "robot_pos",
-        coord: {x: 1, y: 3},
-        robot_color: "r"
-      });
-    }
+
+      for (const row of game!.board.tiles) {
+        for (const tile of row) {
+          if (tile.bottom_wall || tile.right_wall) {
+            wsSend(ws, [{
+              category: "wall_pos",
+              bottom_wall: tile.bottom_wall,
+              right_wall: tile.right_wall,
+              coord: tile.coord,
+            }]);
+          }
+          if (tile.goal) {
+            wsSend(ws, [{
+              category: "goal_pos",
+              goal_specs: { color: tile.goal.color, shape: tile.goal.shape },
+              coord: tile.coord
+            }]);
+          }
+        }
+      }
+    };
     ws.onmessage = (m) => {
       console.log(m);
-    }
+    };
   })
-
   .post("/create", async (ctx) => {
     const params: URLSearchParams = await ctx.request.body().value,
       name = params.get("name");
@@ -104,7 +118,10 @@ router
         })).uuid;
 
       // TODO: do game instance stuff
-      gameFactory({ name: name, game_id: game_id_decoded, uuid: uuid }, game_cfg);
+      gameFactory(
+        { name: name, game_id: game_id_decoded, uuid: uuid },
+        game_cfg,
+      );
       ctx.cookies.set(`${Deno.env.get("COOKIE_PREFIX")}name`, name);
       ctx.cookies.set(`${Deno.env.get("COOKIE_PREFIX")}uuid`, uuid.toString());
       ctx.response.status = 201;
@@ -119,7 +136,6 @@ router
       ctx.response.redirect(`${ctx.request.headers.get("Referer")}`);
     }
   })
-
   .post("/join", async (ctx) => {
     const params: URLSearchParams = await ctx.request.body().value,
       name = params.get("name"),
