@@ -65,7 +65,8 @@ router
           if (tile.goal) {
             wsSend(ws, [{
               category: "goal_pos",
-              goal_specs: { color: tile.goal.color, shape: tile.goal.shape },
+              goal_color: tile.goal.color, 
+              goal_shape: tile.goal.shape,
               coord: tile.coord
             }]);
           }

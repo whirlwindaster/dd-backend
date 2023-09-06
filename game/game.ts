@@ -11,6 +11,7 @@ import {
 } from "../lib/types.ts";
 import { Player } from "./player.ts";
 import Board from "./board.ts";
+import { toSeconds } from "../lib/helpers.ts";
 
 export const active_games = new Map<number, Game>();
 
@@ -75,7 +76,7 @@ export class Game {
     },
     postBidTimeoutHanlder = () => {
       this.#state.phase = "demonstrate"
-      this.#state.timeout = setTimeout(demoTimeoutHandler, this.config.demo_timeout);
+      this.m_setTimeout(demoTimeoutHandler, this.config.demo_timeout);
       // TODO: message first demonstrator
     },
     demoTimeoutHandler = () => {
@@ -95,9 +96,19 @@ export class Game {
         return;
       }
 
-      this.board.resetRobotPositions();
+      const old_robots = this.board.resetRobotPositions();
+      let robot_color: keyof RobotPositions
+      for (robot_color in old_robots) {
+        this.#sendToAllPlayers([{
+          category: "robot_pos",
+          robot_color: robot_color,
+          coord: this.board.current_positions[robot_color],
+          old_coord: old_robots[robot_color]
+        }]);
+      }
       if (this.bids.length <= 1) {
         // TODO: message no pts
+        this.bids = [];
         this.board.goals.shift();
         this.gameEvent("0", {
           category: "next_round"
@@ -107,7 +118,7 @@ export class Game {
 
       this.bids.shift();
       // TODO: message new demonstrator
-      this.#state.timeout = setTimeout(demoTimeoutHandler, this.config.demo_timeout);
+      this.m_setTimeout(demoTimeoutHandler, this.config.demo_timeout);
     };
 
     switch (message.category) {
@@ -125,6 +136,9 @@ export class Game {
             coord: this.board.current_positions[color]
           }]);
         }
+        this.#sendToAllPlayers([{
+          category: "start"
+        }])
 
         this.gameEvent("0", {
           category: "next_round"
@@ -137,14 +151,22 @@ export class Game {
           return;
         }
 
+        // TODO: end game
+
         this.#state.phase = "bid";
         this.#state.round++;
-        this.#state.timeout = setTimeout(preBidTimeoutHandler, this.config.pre_bid_timeout);
+        this.m_setTimeout(preBidTimeoutHandler, this.config.pre_bid_timeout);
+
+        this.#sendToAllPlayers([{
+          category: "current_goal",
+          goal_color: this.board.goals[0].color,
+          goal_shape: this.board.goals[0].shape
+        }])
         break;
       }
 
       case ("bid"): {
-        if (this.#state.phase !== "bid" || !message.num_moves) {
+        if (this.#state.phase !== "bid" || !message.num_moves || message.num_moves < 2) {
           return;
         }
 
@@ -156,23 +178,35 @@ export class Game {
 
         if (this.bids.length === 1) {
           clearTimeout(this.#state.timeout);
-          this.#state.timeout = setTimeout(postBidTimeoutHanlder, this.config.post_bid_timeout);
+          this.m_setTimeout(postBidTimeoutHanlder, this.config.post_bid_timeout);
         }
+
+        this.#sendToAllPlayers([{
+          category: "bid",
+          num_moves: message.num_moves,
+          log: `${this.players.get(from_uuid)?.name} bids ${message.num_moves}`
+        }]);
         // TODO: sort bids
         break;
       }
 
       case ("move"): {
-        if (this.#state.phase !== "demonstrate" || from_uuid !== this.bids[0].uuid || this.bids[0].moves === 0) {
+        if (this.#state.phase !== "demonstrate" || from_uuid !== this.bids[0].uuid || this.bids[0].moves === 0 || !message.robot) {
           return;
         }
 
-        const new_coord = this.board.moveRobot(message.robot!, message.direction!);
+        const old_coord = this.board.current_positions[message.robot],
+          new_coord = this.board.moveRobot(message.robot!, message.direction!);
         if (!new_coord) {
           return;
         }
         
-        // TODO: send new pos to clients
+        this.#sendToAllPlayers([{
+          category: "robot_pos",
+          robot_color: message.robot!,
+          old_coord: old_coord,
+          coord: new_coord, 
+        }])
 
         this.bids[0].moves--;
         if (this.bids[0].moves === 0) {
@@ -181,5 +215,13 @@ export class Game {
         break;
       }
     }
+  }
+
+  m_setTimeout(callback: () => void, time: number) {
+    this.#state.timeout = setTimeout(callback, time);
+    this.#sendToAllPlayers([{
+      category: "timer",
+      log: `timer set for ${toSeconds(time)}`
+    }]);
   }
 }
