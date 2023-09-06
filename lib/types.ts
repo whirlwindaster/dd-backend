@@ -50,21 +50,22 @@ export interface MessageToPlayer {
     | "players_update"
     | "wall_pos"
     | "goal_pos"
-    | "robot_pos";
+    | "robot_pos"
+    | "start"
+    | "bid"
+    | "timer"
+    | "current_goal";
   log?: string;
   game_code?: string;
   player_names?: string;
   bottom_wall?: boolean;
   right_wall?: boolean;
-  goal_specs?: GoalSpecs;
+  goal_color?: GoalColor;
+  goal_shape?: GoalShape;
   robot_color?: RobotColor;
   coord?: Coordinate;
   old_coord?: Coordinate;
-}
-
-export interface GoalSpecs {
-  color: GoalColor | "";
-  shape: GoalShape | ""
+  num_moves?: number;
 }
 
 export interface MessageToAPI {
