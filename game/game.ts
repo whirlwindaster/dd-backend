@@ -12,6 +12,8 @@ import {
 import { Player } from "./player.ts";
 import Board from "./board.ts";
 import { toSeconds } from "../lib/helpers.ts";
+import * as db from "../lib/db.ts";
+import { KeyStack } from "oak/deps.ts";
 
 export const active_games = new Map<number, Game>();
 
@@ -69,6 +71,10 @@ export class Game {
     this.players.forEach((p) => p.send(messages));
   }
 
+  #closeAllConnetions() {
+    this.players.forEach((p) => p.disconnect);
+  }
+
   // from_uuid of "0" means from game
   gameEvent(from_uuid: string, message: MessageToAPI) {
     const preBidTimeoutHandler = () => {
@@ -77,7 +83,14 @@ export class Game {
     postBidTimeoutHanlder = () => {
       this.#state.phase = "demonstrate"
       this.m_setTimeout(demoTimeoutHandler, this.config.demo_timeout);
-      // TODO: message first demonstrator
+      this.#sendToAllPlayers([{
+        category: "log",
+        log: `${this.players.get(this.bids[0].uuid)?.name!} demonstrating ${this.bids[0].moves} moves`
+      }]);
+      this.players.get(this.bids[0].uuid)?.send([{
+        category: "demonstrator",
+        is_demonstrator: true
+      }]);
     },
     demoTimeoutHandler = () => {
       cleanAfterDemo(false);
@@ -86,7 +99,14 @@ export class Game {
       clearTimeout(this.#state.timeout);
       if (could_be_solved && this.board.isSolved()) {
         this.players.get(this.bids[0].uuid)!.score++;
-        // TODO: message pts
+        this.#sendToAllPlayers([{
+          category: "new_round",
+          round: this.#state.round + 1
+        }, {
+          category: "score",
+          scorer: this.players.get(this.bids[0].uuid)?.name!,
+          log: `${this.players.get(this.bids[0].uuid)?.name!} wins this round`
+        }]);
         this.bids = [];
         this.board.goals.shift();
         this.board.saveRobotPositions();
@@ -107,7 +127,13 @@ export class Game {
         }]);
       }
       if (this.bids.length <= 1) {
-        // TODO: message no pts
+        this.#sendToAllPlayers([{
+          category: "new_round",
+          round: this.#state.round + 1
+        }, {
+          category: "log",
+          log: "no players win this round"
+        }])
         this.bids = [];
         this.board.goals.shift();
         this.gameEvent("0", {
@@ -117,7 +143,18 @@ export class Game {
       }
 
       this.bids.shift();
-      // TODO: message new demonstrator
+
+      this.#sendToAllPlayers([{
+        category: "log",
+        log: `${this.players.get(this.bids[0].uuid)?.name!} demonstrating ${this.bids[0].moves} moves`
+      }, {
+        category: "demonstrator",
+        is_demonstrator: false
+      }]);
+      this.players.get(this.bids[0].uuid)?.send([{
+        category: "demonstrator",
+        is_demonstrator: true
+      }]);
       this.m_setTimeout(demoTimeoutHandler, this.config.demo_timeout);
     };
 
@@ -151,7 +188,17 @@ export class Game {
           return;
         }
 
-        // TODO: end game
+        if (this.#state.round === this.config.num_rounds) {
+          const winner_arr = this.getWinner();
+          this.#sendToAllPlayers([{
+            category: "log",
+            log: `${this.players.get(winner_arr[0])?.name} wins with ${winner_arr[1]} points!`
+          }]);
+          this.#closeAllConnetions();
+          active_games.delete(this.id);
+          db.deleteFromGame(this.id);
+          return;
+        }
 
         this.#state.phase = "bid";
         this.#state.round++;
@@ -183,10 +230,11 @@ export class Game {
 
         this.#sendToAllPlayers([{
           category: "bid",
+          bidder: this.players.get(from_uuid)?.name,
           num_moves: message.num_moves,
-          log: `${this.players.get(from_uuid)?.name} bids ${message.num_moves}`
+          log: `${this.players.get(from_uuid)?.name} bids ${message.num_moves}`,
+          is_best_bid: this.#sortBids()
         }]);
-        // TODO: sort bids
         break;
       }
 
@@ -214,6 +262,13 @@ export class Game {
         }
         break;
       }
+
+      case "leave": {
+        this.players.delete(from_uuid);
+        if (this.players.size === 0) {
+          active_games.delete(this.id);
+        }
+      }
     }
   }
 
@@ -221,7 +276,36 @@ export class Game {
     this.#state.timeout = setTimeout(callback, time);
     this.#sendToAllPlayers([{
       category: "timer",
-      log: `timer set for ${toSeconds(time)}`
+      seconds: toSeconds(time)
     }]);
+  }
+
+  #sortBids(): boolean {
+    for (let i = 0; i < this.bids.length - 1; i++) {
+      if (this.bids[i].moves < this.bids[i + 1].moves) {
+        // this will be called every time a new bid is received,
+        // so this condition means guesses are correctly sorted
+        return i === 0;
+      }
+
+      const temp = this.bids[i];
+      this.bids[i] = this.bids[i + 1];
+      this.bids[i + 1] = temp;
+    }
+
+    return this.bids.length === 1;
+  }
+
+  getWinner(): [string, number] {
+    let top_player_uuid = "";
+    let top_score = 0;
+    for (const [key, value] of this.players) {
+      if (value.score > top_score) {
+        top_player_uuid = key;
+        top_score = value.score;
+      }
+    }
+
+    return [top_player_uuid, top_score];
   }
 }

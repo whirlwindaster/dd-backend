@@ -77,6 +77,26 @@ router
       const message = parseMessage(m);
       game!.gameEvent(uuid!, message)
     };
+    ws.onclose = async () => {
+      try {
+        await db.deleteFromPlayer(uuid!);
+      }
+      catch (err) {
+        console.log(err);
+      }
+      game!.gameEvent(uuid!, {
+        category: "leave"
+      });
+
+      if (!game) {
+        try {
+          await db.deleteFromGame(player_info.game_id);
+        }
+        catch (err) {
+          console.log(err);
+        }
+      }
+    }
   })
   .post("/create", async (ctx) => {
     const params: URLSearchParams = await ctx.request.body().value,
