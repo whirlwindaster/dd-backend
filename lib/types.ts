@@ -54,7 +54,10 @@ export interface MessageToPlayer {
     | "start"
     | "bid"
     | "timer"
-    | "current_goal";
+    | "current_goal"
+    | "demonstrator"
+    | "score"
+    | "new_round";
   log?: string;
   game_code?: string;
   player_names?: string;
@@ -66,10 +69,16 @@ export interface MessageToPlayer {
   coord?: Coordinate;
   old_coord?: Coordinate;
   num_moves?: number;
+  is_best_bid?: boolean;
+  is_demonstrator?: boolean;
+  scorer?: string;
+  bidder?: string;
+  seconds?: number;
+  round?: number;
 }
 
 export interface MessageToAPI {
-  category: "start" | "next_round" | "bid" | "move";
+  category: "start" | "next_round" | "bid" | "move" | "leave";
   num_moves?: number;
   robot?: RobotColor;
   direction?: Direction;

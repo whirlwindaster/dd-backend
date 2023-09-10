@@ -65,3 +65,30 @@ export async function insertIntoPlayer(
   if (error) throw new Error(error.message);
   return data[0];
 }
+
+export async function deleteFromGame(id: number) {
+  const { error } = await supabase_client
+    .from("game")
+    .delete()
+    .eq("id", id);
+
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteFromPlayer(uuid: string) {
+  const { error } = await supabase_client
+    .from("player")
+    .delete()
+    .eq("uuid", uuid);
+
+  if (error) throw new Error(error.message);
+}
+
+export async function startGame(id: number) {
+  const { error } = await supabase_client
+    .from("game")
+    .update({ time_started: "now()" })
+    .eq("id", id);
+
+  if (error) throw new Error(error.message);
+}
