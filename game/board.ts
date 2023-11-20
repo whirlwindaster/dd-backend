@@ -50,7 +50,7 @@ export default class Board {
   }
 
   resetRobotPositions() {
-    const old_robots = {...this.current_positions};
+    const old_robots = { ...this.current_positions };
 
     let key: keyof RobotPositions;
     for (key in this.current_positions) {
@@ -157,15 +157,21 @@ export default class Board {
   }
 
   moveRobot(robot: RobotColor, direction: Direction): Coordinate | null {
-    const destination_tile = this.getDestinationTile(direction, this.current_positions[robot]);
-    if (this.current_positions[robot].x === destination_tile.coord.x &&
-      this.current_positions[robot].y === destination_tile.coord.y) {
-        return null;
-      }
-    this.tiles[this.current_positions[robot].x][this.current_positions[robot].y].robot = null;
+    const destination_tile = this.getDestinationTile(
+      direction,
+      this.current_positions[robot],
+    );
+    if (
+      this.current_positions[robot].x === destination_tile.coord.x &&
+      this.current_positions[robot].y === destination_tile.coord.y
+    ) {
+      return null;
+    }
+    this.tiles[this.current_positions[robot].x][this.current_positions[robot].y]
+      .robot = null;
     destination_tile.robot = robot;
-    this.current_positions[robot] = {...destination_tile.coord}
-    return {...destination_tile.coord};
+    this.current_positions[robot] = { ...destination_tile.coord };
+    return { ...destination_tile.coord };
   }
 
   isSolved(): boolean {

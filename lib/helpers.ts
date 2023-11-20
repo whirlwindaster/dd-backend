@@ -9,12 +9,19 @@ export function toSeconds(milliseconds: number) {
 }
 
 // we could make this take an array of messages in order to send multiple messages at once
-export function wsSend(ws: WebSocket, messages: MessageToPlayer[]) {
+export function wsSend(
+  ws: WebSocket,
+  message: MessageToPlayer | MessageToPlayer[],
+) {
   if (ws.readyState !== 1) {
     return;
   }
 
-  for (const message of messages) {
+  if (Array.isArray(message)) {
+    for (const msg of message) {
+      ws.send(JSON.stringify(msg));
+    }
+  } else {
     ws.send(JSON.stringify(message));
   }
 }
