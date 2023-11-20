@@ -24,24 +24,6 @@ export interface Coordinate {
   y: number;
 }
 
-export interface PlayerInsertValues {
-  name: string;
-  game_id: number;
-  is_host?: boolean;
-}
-
-export interface GameInsertValues {
-  num_rounds: number;
-  board_setup_num: number;
-  pre_bid_timeout: number;
-  post_bid_timeout: number;
-  demo_timeout: number;
-}
-
-export interface PlayerInfo extends PlayerInsertValues {
-  uuid: string;
-}
-
 export interface MessageToPlayer {
   category:
     | "log"
@@ -91,13 +73,13 @@ export interface GameState {
   interval: number;
 }
 
-export const DEFAULT: GameInsertValues = {
+export const DEFAULT = {
   num_rounds: 8,
   board_setup_num: 1,
   pre_bid_timeout: 300,
   post_bid_timeout: 60,
-  demo_timeout: 30
-};
+  demo_timeout: 30,
+} as GameInfo;
 
 export interface Goal {
   color: GoalColor;
@@ -131,3 +113,103 @@ export interface RobotPositions {
   u: Coordinate;
   b: Coordinate;
 }
+
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[];
+
+export interface Database {
+  public: {
+    Tables: {
+      game: {
+        Row: {
+          board_setup_num: number;
+          demo_timeout: number;
+          id: number;
+          num_rounds: number;
+          post_bid_timeout: number;
+          pre_bid_timeout: number;
+          time_created: string | null;
+          time_started: string | null;
+        };
+        Insert: {
+          board_setup_num?: number;
+          demo_timeout?: number;
+          id?: number;
+          num_rounds?: number;
+          post_bid_timeout?: number;
+          pre_bid_timeout?: number;
+          time_created?: string | null;
+          time_started?: string | null;
+        };
+        Update: {
+          board_setup_num?: number;
+          demo_timeout?: number;
+          id?: number;
+          num_rounds?: number;
+          post_bid_timeout?: number;
+          pre_bid_timeout?: number;
+          time_created?: string | null;
+          time_started?: string | null;
+        };
+        Relationships: [];
+      };
+      player: {
+        Row: {
+          game_id: number;
+          id: number;
+          is_host: boolean;
+          name: string;
+          uuid: string;
+        };
+        Insert: {
+          game_id: number;
+          id?: number;
+          is_host?: boolean;
+          name?: string;
+          uuid?: string;
+        };
+        Update: {
+          game_id?: number;
+          id?: number;
+          is_host?: boolean;
+          name?: string;
+          uuid?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "player_game_id_fkey";
+            columns: ["game_id"];
+            isOneToOne: false;
+            referencedRelation: "game";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+    };
+    Views: {
+      [_ in never]: never;
+    };
+    Functions: {
+      [_ in never]: never;
+    };
+    Enums: {
+      [_ in never]: never;
+    };
+    CompositeTypes: {
+      [_ in never]: never;
+    };
+  };
+}
+
+export type PlayerInfo = Database["public"]["Tables"]["player"]["Row"];
+export type PlayerInsert = Database["public"]["Tables"]["player"]["Insert"];
+export type PlayerColumn = keyof PlayerInfo;
+
+export type GameInfo = Database["public"]["Tables"]["game"]["Row"];
+export type GameInsert = Database["public"]["Tables"]["game"]["Insert"];
+export type GameColumn = keyof GameInfo;

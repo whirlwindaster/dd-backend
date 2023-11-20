@@ -3,44 +3,46 @@
 import { createClient } from "supabase";
 import "$std/dotenv/load.ts";
 import {
-  GameInsertValues,
-  GameTableColumn,
-  PlayerInsertValues,
-  PlayerTableColumn,
-  Table,
+  Database,
+  GameColumn,
+  GameInfo,
+  GameInsert,
+  PlayerColumn,
+  PlayerInfo,
+  PlayerInsert,
 } from "./types.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_KEY = Deno.env.get("SUPABASE_KEY")!;
-const supabase_client = createClient(SUPABASE_URL, SUPABASE_KEY);
+const supabase_client = createClient<Database>(SUPABASE_URL, SUPABASE_KEY);
 
 export async function selectFromGame(
-  where: { column: GameTableColumn; equals: string | number | boolean },
-) {
+  where: { column: GameColumn; equals: string | number | boolean },
+): Promise<GameInfo[]> {
   const { data, error } = await supabase_client
     .from("game")
-    .select()
+    .select("*")
     .eq(where.column, where.equals);
 
   if (error) throw new Error(error.message);
-  return data[0];
+  return data;
 }
 
 export async function selectFromPlayer(
-  where: { column: PlayerTableColumn; equals: string | number | boolean },
-) {
+  where: { column: PlayerColumn; equals: string | number | boolean },
+): Promise<PlayerInfo[]> {
   const { data, error } = await supabase_client
     .from("player")
-    .select()
+    .select("*")
     .eq(where.column, where.equals);
 
   if (error) throw new Error(error.message);
-  return data[0];
+  return data;
 }
 
 export async function insertIntoGame(
-  values: GameInsertValues,
-) {
+  values: GameInsert,
+): Promise<GameInfo[]> {
   const { data, error } = await supabase_client
     .from("game")
     .insert([
@@ -49,12 +51,12 @@ export async function insertIntoGame(
     .select();
 
   if (error) throw new Error(error.message);
-  return data[0];
+  return data;
 }
 
 export async function insertIntoPlayer(
-  values: PlayerInsertValues,
-) {
+  values: PlayerInsert,
+): Promise<PlayerInfo[]> {
   const { data, error } = await supabase_client
     .from("player")
     .insert([
@@ -63,7 +65,7 @@ export async function insertIntoPlayer(
     .select();
 
   if (error) throw new Error(error.message);
-  return data[0];
+  return data;
 }
 
 export async function deleteFromGame(id: number) {
