@@ -2,6 +2,7 @@ import {
   Coordinate,
   Direction,
   Goal,
+  MessageToPlayer,
   RobotColor,
   RobotPositions,
   Tile,
@@ -20,9 +21,11 @@ export default class Board {
     b: { x: 0, y: 0 },
   };
   saved_positions: RobotPositions;
+  message_template: MessageToPlayer[];
 
   constructor(setup_num: number) {
-    ({ tiles: this.tiles, goals: this.goals } = setup[setup_num - 1]());
+    ({ tiles: this.tiles, goals: this.goals, messages: this.message_template } =
+      setup[setup_num - 1]());
     this.populateRobots();
     this.saved_positions = { ...this.current_positions };
   }

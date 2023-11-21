@@ -1,16 +1,3 @@
-export type Table = "game" | "player";
-
-export type GameTableColumn =
-  | "id"
-  | "time_started"
-  | "num_rounds"
-  | "time_created"
-  | "board_setup_num"
-  | "pre_bid_timeout"
-  | "post_bid_timeout"
-  | "demo_timeout";
-export type PlayerTableColumn = "id" | "game_id" | "name" | "is_host" | "uuid";
-
 export type GamePhase = "join" | "bid" | "demonstrate" | "cleanup" | "end";
 
 export type RobotColor = keyof RobotPositions; // "r" | "y" | "g" | "u" | "b"
@@ -104,6 +91,7 @@ export interface Bid {
 export interface BoardSetup {
   tiles: Tile[][];
   goals: Goal[];
+  messages: MessageToPlayer[];
 }
 
 export interface RobotPositions {
@@ -213,3 +201,41 @@ export type PlayerColumn = keyof PlayerInfo;
 export type GameInfo = Database["public"]["Tables"]["game"]["Row"];
 export type GameInsert = Database["public"]["Tables"]["game"]["Insert"];
 export type GameColumn = keyof GameInfo;
+
+export class Stack<T> {
+  #data: T[] = [];
+
+  push(value: T, sortCallback?: (lhs: T, rhs: T) => boolean) {
+    this.#data.push(value);
+
+    if (!sortCallback) {
+      return;
+    }
+
+    for (let i = this.#data.length - 1; i > 0; i--) {
+      if (sortCallback(this.#data[i], this.#data[i - 1])) {
+        // keep element on top if true
+        break;
+      }
+      const tmp = this.#data[i]
+      this.#data[i] = this.#data[i - 1];
+      this.#data[i - 1] = tmp;
+    }
+  }
+
+  pop(): T | undefined {
+    return this.#data.pop();
+  }
+
+  peek(): T {
+    return this.#data[this.#data.length - 1];
+  }
+
+  size(): number {
+    return this.#data.length;
+  }
+
+  empty(): boolean {
+    return this.#data.length === 0;
+  }
+}

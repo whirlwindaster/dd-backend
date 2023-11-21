@@ -1,12 +1,10 @@
 import {
   Bid,
-  Coordinate,
-  GameInsert,
+  GameInfo,
   GameState,
   MessageToAPI,
   MessageToPlayer,
   PlayerInfo,
-  RobotColor,
   RobotPositions,
 } from "../lib/types.ts";
 import { Player } from "./player.ts";
@@ -18,7 +16,7 @@ export const active_games = new Map<number, Game>();
 
 export function gameFactory(
   player_info: PlayerInfo,
-  config: GameInsert,
+  config: GameInfo,
 ): Game {
   if (!active_games.has(player_info.game_id)) {
     const game = new Game(player_info, config);
@@ -30,7 +28,7 @@ export function gameFactory(
 export class Game {
   id: number;
   host_uuid: string;
-  config: GameInsert;
+  config: GameInfo;
   board: Board;
   players = new Map<string, Player>();
   bids: Bid[] = [];
@@ -41,7 +39,7 @@ export class Game {
     interval: -1,
   };
 
-  constructor(host_info: PlayerInfo, config: GameInsert) {
+  constructor(host_info: PlayerInfo, config: GameInfo) {
     this.id = host_info.game_id;
     this.host_uuid = host_info.uuid;
     this.config = config;
@@ -74,6 +72,95 @@ export class Game {
     this.players.forEach((p) => p.disconnect);
   }
 
+//###################################################################################//
+// Section: Game Event Handlers                                                      //
+//###################################################################################//
+
+  preBidTimeoutHandler = () => {
+    this.cleanAfterDemo(false);
+  };
+  postBidTimeoutHanlder = () => {
+    this.#state.phase = "demonstrate";
+    this.m_setTimeout(this.demoTimeoutHandler, this.config.demo_timeout);
+    this.#sendToAllPlayers([{
+      category: "log",
+      log: `${this.players.get(this.bids[0].uuid)?.name!} demonstrating ${
+        this.bids[0].moves
+      } moves`,
+    }]);
+    this.players.get(this.bids[0].uuid)?.send([{
+      category: "demonstrator",
+      is_demonstrator: true,
+    }]);
+  };
+  demoTimeoutHandler = () => {
+    this.cleanAfterDemo(false);
+  };
+  cleanAfterDemo = (could_be_solved: boolean) => {
+    clearTimeout(this.#state.timeout);
+    if (could_be_solved && this.board.isSolved()) {
+      this.players.get(this.bids[0].uuid)!.score++;
+      this.#sendToAllPlayers([{
+        category: "new_round",
+        round: this.#state.round + 1,
+      }, {
+        category: "score",
+        scorer: this.players.get(this.bids[0].uuid)?.name!,
+        log: `${this.players.get(this.bids[0].uuid)
+          ?.name!} wins this round`,
+      }]);
+      this.bids = [];
+      this.board.goals.shift();
+      this.board.saveRobotPositions();
+      this.gameEvent("0", {
+        category: "next_round",
+      });
+      return;
+    }
+
+    const old_robots = this.board.resetRobotPositions();
+    let robot_color: keyof RobotPositions;
+    for (robot_color in old_robots) {
+      this.#sendToAllPlayers([{
+        category: "robot_pos",
+        robot_color: robot_color,
+        coord: this.board.current_positions[robot_color],
+        old_coord: old_robots[robot_color],
+      }]);
+    }
+    if (this.bids.length <= 1) {
+      this.#sendToAllPlayers([{
+        category: "new_round",
+        round: this.#state.round + 1,
+      }, {
+        category: "log",
+        log: "no players win this round",
+      }]);
+      this.bids = [];
+      this.board.goals.shift();
+      this.gameEvent("0", {
+        category: "next_round",
+      });
+      return;
+    }
+
+    this.bids.shift();
+
+    this.#sendToAllPlayers([{
+      category: "log",
+      log: `${this.players.get(this.bids[0].uuid)?.name!} demonstrating ${
+        this.bids[0].moves
+      } moves`,
+    }, {
+      category: "demonstrator",
+      is_demonstrator: false,
+    }]);
+    this.players.get(this.bids[0].uuid)?.send([{
+      category: "demonstrator",
+      is_demonstrator: true,
+    }]);
+    this.m_setTimeout(this.demoTimeoutHandler, this.config.demo_timeout);
+  };
   // from_uuid of "0" means from game
   gameEvent(from_uuid: string, message: MessageToAPI) {
     const preBidTimeoutHandler = () => {

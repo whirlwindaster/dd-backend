@@ -1,9 +1,10 @@
 import * as db from "../lib/db.ts";
 import { RouterContext } from "oak/mod.ts";
-import { active_games, Game } from "../game/game.ts";
-import { parseMessage, wsSend } from "../lib/helpers.ts";
-import { encode } from "../lib/id_cipher.ts";
-import { PlayerInfo } from "../lib/types.ts";
+import { active_games, gameFactory } from "../game/game.ts";
+import { onClose, onMessage, onOpen } from "./handle_ws.ts";
+import { toMilliseconds } from "../lib/helpers.ts";
+import { DEFAULT, GameInsert } from "../lib/types.ts";
+import { decode } from "../lib/id_cipher.ts";
 
 export const get_ws = async (
   ctx: RouterContext<
@@ -40,68 +41,112 @@ export const get_ws = async (
   ws.onclose = onClose(player_info, game);
 };
 
-const onOpen = (player_info: PlayerInfo, game: Game, ws: WebSocket) => {
-  return () => {
-    game.addPlayer(player_info, ws);
-
-    wsSend(ws, {
-      category: "game_code",
-      game_code: encode(player_info.game_id),
-    });
-
-    if (player_info.is_host) {
-      wsSend(ws, {
-        category: "you_are_host",
-      });
-    }
-
-    // TODO: add message templates so we don't have to do this loop for every new player
-    for (const row of game.board.tiles) {
-      for (const tile of row) {
-        if (tile.bottom_wall || tile.right_wall) {
-          wsSend(ws, {
-            category: "wall_pos",
-            bottom_wall: tile.bottom_wall,
-            right_wall: tile.right_wall,
-            coord: tile.coord,
-          });
-        }
-        if (tile.goal) {
-          wsSend(ws, {
-            category: "goal_pos",
-            goal_color: tile.goal.color,
-            goal_shape: tile.goal.shape,
-            coord: tile.coord,
-          });
-        }
-      }
-    }
+export const post_create = async (
+  ctx: RouterContext<
+    "/create",
+    Record<string | number, string | undefined>,
+    // deno-lint-ignore no-explicit-any
+    Record<string, any>
+  >,
+) => {
+  const params: URLSearchParams = await ctx.request.body().value,
+    name = params.get("name");
+  if (!name) {
+    ctx.response.status = 400;
+    ctx.response.redirect(`${ctx.request.headers.get("Referer")}`);
+    return;
+  }
+  const game_cfg: GameInsert = {
+    num_rounds: params.has("num_rounds")
+      ? parseInt(params.get("num_rounds")!)
+      : DEFAULT.num_rounds,
+    board_setup_num: params.has("board_setup_num")
+      ? parseInt(params.get("board_setup_num")!)
+      : DEFAULT.board_setup_num,
+    pre_bid_timeout: toMilliseconds(
+      params.has("pre_bid_timeout")
+        ? parseInt(params.get("pre_bid_timeout")!)
+        : DEFAULT.pre_bid_timeout,
+    ),
+    post_bid_timeout: toMilliseconds(
+      params.has("post_bid_timeout")
+        ? parseInt(params.get("post_bid_timeout")!)
+        : DEFAULT.post_bid_timeout,
+    ),
+    demo_timeout: toMilliseconds(
+      params.has("pre_big_timeout")
+        ? parseInt(params.get("pre_bid_timeout")!)
+        : DEFAULT.demo_timeout,
+    ),
   };
+
+  try {
+    // make game row first (player row needs a matching game_id)
+    const game_id_decoded = (await db.insertIntoGame(game_cfg))[0].id,
+      player_info = (await db.insertIntoPlayer({
+        name: name,
+        game_id: game_id_decoded,
+        is_host: true,
+      }))[0];
+
+    // TODO: do game instance stuff
+    gameFactory(
+      player_info,
+      game_cfg,
+    );
+    ctx.cookies.set(`${Deno.env.get("COOKIE_PREFIX")}name`, name);
+    ctx.cookies.set(`${Deno.env.get("COOKIE_PREFIX")}uuid`, player_info.uuid);
+    ctx.response.status = 201;
+    ctx.response.redirect(
+      // styled url
+      `${ctx.request.headers.get("Referer")}er/game`,
+    );
+  } catch (error) {
+    console.log(error);
+    ctx.response.status = 400;
+    ctx.response.body = error;
+    ctx.response.redirect(`${ctx.request.headers.get("Referer")}`);
+  }
 };
 
-const onMessage = (uuid: string, game: Game) => {
-  return (m: MessageEvent) => {
-    const message = parseMessage(m);
-    game.gameEvent(uuid, message);
-  };
-};
-const onClose = (player_info: PlayerInfo, game: Game) => {
-  return async () => {
-    try {
-      await db.deleteFromPlayer(player_info.uuid);
-    } catch (err) {
-      console.log(err);
-    }
-    game.gameEvent(player_info.uuid, {
-      category: "leave",
-    });
+export const post_join = async (
+  ctx: RouterContext<
+    "/join",
+    Record<string | number, string | undefined>,
+    // deno-lint-ignore no-explicit-any
+    Record<string, any>
+  >,
+) => {
+  const params: URLSearchParams = await ctx.request.body().value,
+    name = params.get("name"),
+    game_id_encoded = params.get("game_code");
+  if (
+    !name ||
+    !game_id_encoded
+  ) {
+    ctx.response.status = 400;
+    ctx.response.redirect(`${ctx.request.headers.get("Referer")}`);
+    return;
+  }
 
-    if (game.players.size === 0) {
-      try {
-        await db.deleteFromGame(player_info.game_id);
-      } catch (err) {
-        console.log(err);
-      }
-    }
-  };
+  try {
+    const uuid = (await db.insertIntoPlayer({
+      name: name,
+      game_id: decode(game_id_encoded)!,
+      is_host: false,
+    }))[0].uuid;
+
+    ctx.cookies.set(`${Deno.env.get("COOKIE_PREFIX")}name`, name);
+    ctx.cookies.set(`${Deno.env.get("COOKIE_PREFIX")}uuid`, uuid);
+    ctx.response.status = 201;
+    ctx.response.redirect(
+      // styled url
+      `${ctx.request.headers.get("Referer")}er/game`,
+    );
+  } catch (error) {
+    console.log(error);
+    ctx.response.status = 400;
+    ctx.response.body = error;
+    ctx.response.redirect(`${ctx.request.headers.get("Referer")}`);
+  }
 };

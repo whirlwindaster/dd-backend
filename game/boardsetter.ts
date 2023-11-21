@@ -1,4 +1,5 @@
 import { BoardSetup, Coordinate, Goal, Tile } from "../lib/types.ts";
+import { MessageToPlayer } from "../lib/types.ts";
 
 const b1 = () => {
   const rightWallCoord: Coordinate[] = [
@@ -66,19 +67,45 @@ const b1 = () => {
       { color: "y", shape: "gear", coord: { x: 14, y: 12 } },
       { color: "m", shape: "vortex", coord: { x: 8, y: 10 } },
     ],
-    tiles = dflt();
+    tiles = dflt(),
+    messages: MessageToPlayer[] = [];
 
   for (const c of rightWallCoord) {
     tiles[c.x][c.y].right_wall = true;
+    messages.push({
+      category: "wall_pos",
+      coord: {
+        x: c.x,
+        y: c.y,
+      },
+      right_wall: true,
+    });
   }
   for (const c of bottomWallCoord) {
     tiles[c.x][c.y].bottom_wall = true;
+    messages.push({
+      category: "wall_pos",
+      coord: {
+        x: c.x,
+        y: c.y,
+      },
+      bottom_wall: true,
+    });
   }
   for (const g of goals) {
     tiles[g.coord.x][g.coord.y].goal = g;
+    messages.push({
+      category: "goal_pos",
+      coord: {
+        x: g.coord.x,
+        y: g.coord.y,
+      },
+      goal_color: g.color,
+      goal_shape: g.shape,
+    });
   }
 
-  return { tiles, goals };
+  return { tiles, goals, messages };
 };
 
 function dflt(): Tile[][] {
