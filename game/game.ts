@@ -1,22 +1,27 @@
 import {
   Bid,
+  Direction,
   GameInfo,
+  GameInsert,
   GameState,
+  Goal,
   MessageToAPI,
   MessageToPlayer,
   PlayerInfo,
+  RobotColor,
   RobotPositions,
+  Stack,
 } from "../lib/types.ts";
 import { Player } from "./player.ts";
 import Board from "./board.ts";
-import { toSeconds } from "../lib/helpers.ts";
+import { shuffleArray, toSeconds } from "../lib/helpers.ts";
 import * as db from "../lib/db.ts";
 
 export const active_games = new Map<number, Game>();
 
 export function gameFactory(
   player_info: PlayerInfo,
-  config: GameInfo,
+  config: GameInsert,
 ): Game {
   if (!active_games.has(player_info.game_id)) {
     const game = new Game(player_info, config);
@@ -28,54 +33,246 @@ export function gameFactory(
 export class Game {
   id: number;
   host_uuid: string;
-  config: GameInfo;
+  config: GameInsert;
   board: Board;
   players = new Map<string, Player>();
-  bids: Bid[] = [];
+  bids = new Stack<Bid>();
+  goalStack: Stack<Goal>;
   #state: GameState = {
     phase: "join",
     round: 0,
-    timeout: -1,
-    interval: -1,
+    timeout_id: 0,
+    goal: {
+      color: "m",
+      shape: "vortex",
+      coord: {
+        x: -1,
+        y: -1,
+      },
+    },
+    bid: {
+      uuid: "",
+      moves: 0,
+      timestamp: 0,
+    },
   };
 
-  constructor(host_info: PlayerInfo, config: GameInfo) {
+  constructor(host_info: PlayerInfo, config: GameInsert) {
     this.id = host_info.game_id;
     this.host_uuid = host_info.uuid;
     this.config = config;
     this.board = new Board(config.board_setup_num);
+    this.goalStack = new Stack<Goal>(shuffleArray(this.board.goals));
     // prefer to access players by uuid rather than name, id, etc
   }
 
+  // TODO: implement players as set
   addPlayer(player_info: PlayerInfo, ws: WebSocket) {
     this.players.set(player_info.uuid, new Player(player_info, ws));
     let names = "";
     for (const value of this.players.values()) {
+      // this is a really stupid way to implement this lmfao
       // need to make & an invalid character
       names = `${names}${value.name}&`;
     }
-    this.#sendToAllPlayers([{
+    this.#sendToAllPlayers({
       category: "players_update",
       player_names: names.substring(0, names.length - 1),
-    }]);
+    });
   }
 
   deletePlayer(uuid: string) {
     this.players.delete(uuid);
   }
 
-  #sendToAllPlayers(messages: MessageToPlayer[]) {
-    this.players.forEach((p) => p.send(messages));
+  #sendToAllPlayers(message: MessageToPlayer) {
+    this.players.forEach((p) => p.send(message));
   }
 
   #closeAllConnetions() {
     this.players.forEach((p) => p.disconnect);
   }
 
-//###################################################################################//
-// Section: Game Event Handlers                                                      //
-//###################################################################################//
+  //#################################################################################//
+  // Section: Game Event Handlers                                                    //
+  //#################################################################################//
+  // PHILOSOPHY: the phase functions shall be able to run a complete game without outside intervention.
+  setupRound() {
+    if (this.#state.round >= this.config.num_rounds || this.goalStack.empty()) {
+      this.endGame();
+      return;
+    }
+    this.board.saveRobotPositions();
+    this.bids.clear();
+    this.#state.round++;
+    this.#state.goal = this.goalStack.pop()!;
+    this.bidPhase();
+    this.#sendToAllPlayers({
+      category: "current_goal",
+      goal_color: this.#state.goal.color,
+      goal_shape: this.#state.goal.shape,
+      log: `beginning round ${this.#state.round}`,
+    });
+  }
+  bidPhase() {
+    this.#state.phase = "bid";
+    this.m_setTimeout(this.demoPhase.bind(this), this.config.pre_bid_timeout);
+  }
+  demoPhase() {
+    this.board.resetRobotPositions();
+    this.sendRobotPositions();
+    if (this.bids.empty()) {
+      this.#sendToAllPlayers({
+        category: "log",
+        log: "no points awarded this round.",
+      });
+      this.setupRound();
+      return;
+    }
+    this.#state.phase = "demonstrate";
+    this.#state.bid = this.bids.pop()!;
+    this.players.get(this.#state.bid.uuid)?.send({
+      category: "demonstrator",
+      demonstrator: this.players.get(this.#state.bid.uuid)?.name,
+      log: `${
+        this.players.get(this.#state.bid.uuid)?.name
+      } demonstrating ${this.#state.bid.moves} moves`,
+    });
+    this.m_setTimeout(this.demoPhase.bind(this), this.config.demo_timeout);
+  }
+  endGame() {
+    const winners = this.getWinners();
+    switch (winners.length) {
+      case 0: {
+        this.#sendToAllPlayers({
+          category: "log",
+          log: "where did everyone go?",
+        });
+        break;
+      }
+      case 1: {
+        this.#sendToAllPlayers({
+          category: "log",
+          log: `${winners[0].name} wins with ${winners[0].score} point(s)!`,
+        });
+        break;
+      }
+      default:
+        {
+          this.#sendToAllPlayers({
+            category: "log",
+            log: `${winners.slice(0, -1).join(", ")}, and ${
+              winners[winners.length - 1]
+            } tie for first with ${winners[0].score} point(s)!}`,
+          });
+        }
+        this.#closeAllConnetions();
+    }
+  }
 
+  gameEvent(from_uuid: string, message: MessageToAPI) {
+    switch (message.category) {
+      case "start": {
+        if (this.#state.phase !== "join" || from_uuid !== this.host_uuid) {
+          return;
+        }
+        this.sendRobotPositions();
+        this.#sendToAllPlayers({
+          category: "start",
+        });
+        this.setupRound();
+        break;
+      }
+      case "bid": {
+        if (
+          this.#state.phase !== "bid" || !this.players.has(from_uuid) ||
+          !message.num_moves || message.num_moves < 2
+        ) {
+          return;
+        }
+
+        const new_bid: Bid = {
+          uuid: from_uuid,
+          moves: message.num_moves,
+          timestamp: Date.now(),
+        };
+        this.bids.push(new_bid);
+        this.#sendToAllPlayers({
+          category: "bid",
+          bidder: this.players.get(from_uuid)?.name,
+          num_moves: message.num_moves,
+          log: `${
+            this.players.get(from_uuid)?.name
+          } bids ${message.num_moves} moves`,
+        });
+
+        if (this.bids.size() === 1) {
+          this.m_setTimeout(
+            this.demoPhase.bind(this),
+            this.config.post_bid_timeout,
+          );
+        }
+
+        break;
+      }
+      case "move": {
+        if (
+          this.#state.phase !== "demonstrate" ||
+          from_uuid !== this.#state.bid.uuid || !message.robot ||
+          !message.direction
+        ) {
+          return;
+        }
+
+        this.m_moveRobot(message.robot, message.direction);
+        this.#state.bid.moves--;
+        if (this.#state.bid.moves < 1) {
+          clearTimeout(this.#state.timeout_id);
+          if (!this.board.isSolved()) {
+            this.demoPhase();
+            return;
+          }
+          this.#sendToAllPlayers({
+            category: "score",
+            scorer: this.players.get(from_uuid)?.name,
+            log: `${this.players.get(from_uuid)?.name} wins this round!`,
+          });
+          this.setupRound();
+        }
+        break;
+      }
+      case "leave": {
+        this.players.delete(from_uuid);
+        if (!this.players.size) {
+          active_games.delete(this.id);
+        }
+        break;
+      }
+    }
+  }
+
+  /*
+  gotoNextRound(message?: MessageToPlayer) {
+    if (message) {
+      this.#sendToAllPlayers([message]);
+    }
+    this.gameEvent("0", {
+      category: "next_round",
+    });
+  }
+
+  failedDemoHandler = () => {
+    const old_robots = this.board.resetRobotPositions();
+    let robot_color: keyof RobotPositions;
+    for (robot_color in old_robots) {
+      this.#sendToAllPlayers([{
+        category: "robot_pos",
+        robot_color: robot_color,
+        coord: this.board.current_positions[robot_color],
+        old_coord: old_robots[robot_color],
+      }]);
+    }
+  };
   preBidTimeoutHandler = () => {
     this.cleanAfterDemo(false);
   };
@@ -84,11 +281,10 @@ export class Game {
     this.m_setTimeout(this.demoTimeoutHandler, this.config.demo_timeout);
     this.#sendToAllPlayers([{
       category: "log",
-      log: `${this.players.get(this.bids[0].uuid)?.name!} demonstrating ${
-        this.bids[0].moves
-      } moves`,
+      log: `${this.players.get(this.bids.peek().uuid)
+        ?.name!} demonstrating ${this.bids.peek().moves} moves`,
     }]);
-    this.players.get(this.bids[0].uuid)?.send([{
+    this.players.get(this.bids.peek().uuid)?.send([{
       category: "demonstrator",
       is_demonstrator: true,
     }]);
@@ -99,18 +295,17 @@ export class Game {
   cleanAfterDemo = (could_be_solved: boolean) => {
     clearTimeout(this.#state.timeout);
     if (could_be_solved && this.board.isSolved()) {
-      this.players.get(this.bids[0].uuid)!.score++;
+      this.players.get(this.bids.peek().uuid)!.score++;
       this.#sendToAllPlayers([{
         category: "new_round",
         round: this.#state.round + 1,
       }, {
         category: "score",
-        scorer: this.players.get(this.bids[0].uuid)?.name!,
-        log: `${this.players.get(this.bids[0].uuid)
+        scorer: this.players.get(this.bids.peek().uuid)?.name!,
+        log: `${this.players.get(this.bids.peek().uuid)
           ?.name!} wins this round`,
       }]);
-      this.bids = [];
-      this.board.goals.shift();
+      this.bids.clear();
       this.board.saveRobotPositions();
       this.gameEvent("0", {
         category: "next_round",
@@ -128,7 +323,7 @@ export class Game {
         old_coord: old_robots[robot_color],
       }]);
     }
-    if (this.bids.length <= 1) {
+    if (this.bids.size() <= 1) {
       this.#sendToAllPlayers([{
         category: "new_round",
         round: this.#state.round + 1,
@@ -136,126 +331,38 @@ export class Game {
         category: "log",
         log: "no players win this round",
       }]);
-      this.bids = [];
-      this.board.goals.shift();
+      this.bids.clear();
       this.gameEvent("0", {
         category: "next_round",
       });
       return;
     }
 
-    this.bids.shift();
+    this.bids.pop();
 
     this.#sendToAllPlayers([{
       category: "log",
-      log: `${this.players.get(this.bids[0].uuid)?.name!} demonstrating ${
-        this.bids[0].moves
-      } moves`,
+      log: `${this.players.get(this.bids.peek().uuid)
+        ?.name!} demonstrating ${this.bids.peek().moves} moves`,
     }, {
       category: "demonstrator",
       is_demonstrator: false,
     }]);
-    this.players.get(this.bids[0].uuid)?.send([{
+    this.players.get(this.bids.peek().uuid)?.send([{
       category: "demonstrator",
       is_demonstrator: true,
     }]);
     this.m_setTimeout(this.demoTimeoutHandler, this.config.demo_timeout);
   };
+
   // from_uuid of "0" means from game
   gameEvent(from_uuid: string, message: MessageToAPI) {
-    const preBidTimeoutHandler = () => {
-        cleanAfterDemo(false);
-      },
-      postBidTimeoutHanlder = () => {
-        this.#state.phase = "demonstrate";
-        this.m_setTimeout(demoTimeoutHandler, this.config.demo_timeout);
-        this.#sendToAllPlayers([{
-          category: "log",
-          log: `${this.players.get(this.bids[0].uuid)?.name!} demonstrating ${
-            this.bids[0].moves
-          } moves`,
-        }]);
-        this.players.get(this.bids[0].uuid)?.send([{
-          category: "demonstrator",
-          is_demonstrator: true,
-        }]);
-      },
-      demoTimeoutHandler = () => {
-        cleanAfterDemo(false);
-      },
-      cleanAfterDemo = (could_be_solved: boolean) => {
-        clearTimeout(this.#state.timeout);
-        if (could_be_solved && this.board.isSolved()) {
-          this.players.get(this.bids[0].uuid)!.score++;
-          this.#sendToAllPlayers([{
-            category: "new_round",
-            round: this.#state.round + 1,
-          }, {
-            category: "score",
-            scorer: this.players.get(this.bids[0].uuid)?.name!,
-            log: `${this.players.get(this.bids[0].uuid)
-              ?.name!} wins this round`,
-          }]);
-          this.bids = [];
-          this.board.goals.shift();
-          this.board.saveRobotPositions();
-          this.gameEvent("0", {
-            category: "next_round",
-          });
-          return;
-        }
-
-        const old_robots = this.board.resetRobotPositions();
-        let robot_color: keyof RobotPositions;
-        for (robot_color in old_robots) {
-          this.#sendToAllPlayers([{
-            category: "robot_pos",
-            robot_color: robot_color,
-            coord: this.board.current_positions[robot_color],
-            old_coord: old_robots[robot_color],
-          }]);
-        }
-        if (this.bids.length <= 1) {
-          this.#sendToAllPlayers([{
-            category: "new_round",
-            round: this.#state.round + 1,
-          }, {
-            category: "log",
-            log: "no players win this round",
-          }]);
-          this.bids = [];
-          this.board.goals.shift();
-          this.gameEvent("0", {
-            category: "next_round",
-          });
-          return;
-        }
-
-        this.bids.shift();
-
-        this.#sendToAllPlayers([{
-          category: "log",
-          log: `${this.players.get(this.bids[0].uuid)?.name!} demonstrating ${
-            this.bids[0].moves
-          } moves`,
-        }, {
-          category: "demonstrator",
-          is_demonstrator: false,
-        }]);
-        this.players.get(this.bids[0].uuid)?.send([{
-          category: "demonstrator",
-          is_demonstrator: true,
-        }]);
-        this.m_setTimeout(demoTimeoutHandler, this.config.demo_timeout);
-      };
-
     switch (message.category) {
       case ("start"): {
         if (this.host_uuid !== from_uuid || this.#state.phase !== "join") {
           return;
         }
 
-        this.board.shuffleGoals();
         let color: keyof RobotPositions;
         for (color in this.board.current_positions) {
           this.#sendToAllPlayers([{
@@ -280,12 +387,10 @@ export class Game {
         }
 
         if (this.#state.round === this.config.num_rounds) {
-          const winner_arr = this.getWinner();
+          const winner = this.getWinner();
           this.#sendToAllPlayers([{
             category: "log",
-            log: `${this.players.get(winner_arr[0])?.name} wins with ${
-              winner_arr[1]
-            } points!`,
+            log: `${winner.name} wins with ${winner.score} points!`,
           }]);
           this.#closeAllConnetions();
           active_games.delete(this.id);
@@ -295,12 +400,16 @@ export class Game {
 
         this.#state.phase = "bid";
         this.#state.round++;
-        this.m_setTimeout(preBidTimeoutHandler, this.config.pre_bid_timeout);
+        this.m_setTimeout(
+          this.preBidTimeoutHandler,
+          this.config.pre_bid_timeout,
+        );
 
+        const new_goal = this.goalStack.pop()!;
         this.#sendToAllPlayers([{
           category: "current_goal",
-          goal_color: this.board.goals[0].color,
-          goal_shape: this.board.goals[0].shape,
+          goal_color: new_goal.color,
+          goal_shape: new_goal.shape,
         }]);
         break;
       }
@@ -308,21 +417,27 @@ export class Game {
       case ("bid"): {
         if (
           this.#state.phase !== "bid" || !message.num_moves ||
-          message.num_moves < 2
+          message.num_moves < 2 || this.bids.some((e) => {
+            return e.uuid === from_uuid && e.moves === message.num_moves;
+          })
         ) {
           return;
         }
 
-        this.bids.unshift({
+        const new_bid: Bid = {
           uuid: from_uuid,
           moves: message.num_moves,
           timestamp: Date.now(),
+        };
+
+        this.bids.push(new_bid, (lhs, rhs) => {
+          return lhs.moves <= rhs.moves;
         });
 
-        if (this.bids.length === 1) {
+        if (this.bids.size() === 1) {
           clearTimeout(this.#state.timeout);
           this.m_setTimeout(
-            postBidTimeoutHanlder,
+            this.postBidTimeoutHanlder,
             this.config.post_bid_timeout,
           );
         }
@@ -332,7 +447,7 @@ export class Game {
           bidder: this.players.get(from_uuid)?.name,
           num_moves: message.num_moves,
           log: `${this.players.get(from_uuid)?.name} bids ${message.num_moves}`,
-          is_best_bid: this.#sortBids(),
+          is_best_bid: this.bids.peek() === new_bid,
         }]);
         break;
       }
@@ -340,7 +455,7 @@ export class Game {
       case ("move"): {
         if (
           this.#state.phase !== "demonstrate" ||
-          from_uuid !== this.bids[0].uuid || this.bids[0].moves === 0 ||
+          from_uuid !== this.bids.peek().uuid || this.bids.peek().moves === 0 ||
           !message.robot
         ) {
           return;
@@ -359,9 +474,9 @@ export class Game {
           coord: new_coord,
         }]);
 
-        this.bids[0].moves--;
-        if (this.bids[0].moves === 0) {
-          cleanAfterDemo(true);
+        this.bids.peek().moves--;
+        if (this.bids.peek().moves === 0) {
+          this.cleanAfterDemo(true);
         }
         break;
       }
@@ -375,40 +490,55 @@ export class Game {
     }
   }
 
-  m_setTimeout(callback: () => void, time: number) {
-    this.#state.timeout = setTimeout(callback, time);
-    this.#sendToAllPlayers([{
+  */
+  m_setTimeout(
+    callback: () => void,
+    time: number,
+  ) {
+    clearTimeout(this.#state.timeout_id);
+    this.#state.timeout_id = setTimeout(callback, time);
+    this.#sendToAllPlayers({
       category: "timer",
       seconds: toSeconds(time),
-    }]);
+    });
   }
 
-  #sortBids(): boolean {
-    for (let i = 0; i < this.bids.length - 1; i++) {
-      if (this.bids[i].moves < this.bids[i + 1].moves) {
-        // this will be called every time a new bid is received,
-        // so this condition means guesses are correctly sorted
-        return i === 0;
-      }
-
-      const temp = this.bids[i];
-      this.bids[i] = this.bids[i + 1];
-      this.bids[i + 1] = temp;
+  m_moveRobot(color: RobotColor, direction: Direction) {
+    const new_coord = this.board.moveRobot(color, direction);
+    if (!new_coord) {
+      return;
     }
 
-    return this.bids.length === 1;
+    this.#sendToAllPlayers({
+      category: "robot_pos",
+      robot_color: color,
+      coord: new_coord,
+    });
   }
 
-  getWinner(): [string, number] {
-    let top_player_uuid = "";
-    let top_score = 0;
-    for (const [key, value] of this.players) {
-      if (value.score > top_score) {
-        top_player_uuid = key;
-        top_score = value.score;
+  sendRobotPositions() {
+    let color: keyof RobotPositions;
+    for (color in this.board.current_positions) {
+      this.#sendToAllPlayers({
+        category: "robot_pos",
+        robot_color: color,
+        coord: this.board.current_positions[color],
+      });
+    }
+  }
+
+  getWinners(): Player[] {
+    const players_arr = [...this.players.values()];
+    let winners = [players_arr[0]];
+
+    for (let i = 1; i < players_arr.length; i++) {
+      if (players_arr[i].score > winners[0].score) {
+        winners = [players_arr[i]];
+      } else if (players_arr[i].score === winners[0].score) {
+        winners.push(players_arr[i]);
       }
     }
 
-    return [top_player_uuid, top_score];
+    return winners;
   }
 }

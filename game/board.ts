@@ -5,6 +5,7 @@ import {
   MessageToPlayer,
   RobotColor,
   RobotPositions,
+  Stack,
   Tile,
 } from "../lib/types.ts";
 import { setup } from "./boardsetter.ts";
@@ -26,6 +27,7 @@ export default class Board {
   constructor(setup_num: number) {
     ({ tiles: this.tiles, goals: this.goals, messages: this.message_template } =
       setup[setup_num - 1]());
+
     this.populateRobots();
     this.saved_positions = { ...this.current_positions };
   }
@@ -53,8 +55,6 @@ export default class Board {
   }
 
   resetRobotPositions() {
-    const old_robots = { ...this.current_positions };
-
     let key: keyof RobotPositions;
     for (key in this.current_positions) {
       this.tiles[this.current_positions[key].x][this.current_positions[key].y]
@@ -66,7 +66,7 @@ export default class Board {
         .robot = key;
     }
 
-    return old_robots;
+    return this.current_positions;
   }
 
   isSpotAvailable(c: Coordinate): boolean {
@@ -91,24 +91,6 @@ export default class Board {
   isCenterSquare(c: Coordinate): boolean {
     return (this.size / 2 - 1 <= c.x && c.x <= this.size / 2) &&
       (this.size / 2 - 1 <= c.y && c.y <= this.size / 2);
-  }
-
-  shuffleGoals() {
-    let currentIndex = this.goals.length,
-      randomIndex: number;
-
-    // While there remain elements to shuffle.
-    while (currentIndex > 0) {
-      // Pick a remaining element.
-      randomIndex = Math.floor(Math.random() * currentIndex);
-      currentIndex--;
-
-      // And swap it with the current element.
-      [this.goals[currentIndex], this.goals[randomIndex]] = [
-        this.goals[randomIndex],
-        this.goals[currentIndex],
-      ];
-    }
   }
 
   getDestinationTile(direction: Direction, c: Coordinate): Tile {
