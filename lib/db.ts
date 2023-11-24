@@ -1,5 +1,4 @@
 // deno-lint-ignore-file no-explicit-any
-// TODO: fix types here. i know you can do it
 import { createClient } from "supabase";
 import "$std/dotenv/load.ts";
 import {
@@ -57,6 +56,14 @@ export async function insertIntoGame(
 export async function insertIntoPlayer(
   values: PlayerInsert,
 ): Promise<PlayerInfo[]> {
+  if (
+    (await selectFromPlayer({ column: "game_id", equals: values.game_id }))
+      .some((e) => {
+        e.name === values.name;
+      })
+  ) {
+    throw new Error("duplicate names");
+  }
   const { data, error } = await supabase_client
     .from("player")
     .insert([

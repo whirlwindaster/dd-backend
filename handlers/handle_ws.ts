@@ -19,26 +19,8 @@ export const onOpen = (player_info: PlayerInfo, game: Game, ws: WebSocket) => {
       });
     }
 
-    // TODO: add message templates so we don't have to do this loop for every new player
-    for (const row of game.board.tiles) {
-      for (const tile of row) {
-        if (tile.bottom_wall || tile.right_wall) {
-          wsSend(ws, {
-            category: "wall_pos",
-            bottom_wall: tile.bottom_wall,
-            right_wall: tile.right_wall,
-            coord: tile.coord,
-          });
-        }
-        if (tile.goal) {
-          wsSend(ws, {
-            category: "goal_pos",
-            goal_color: tile.goal.color,
-            goal_shape: tile.goal.shape,
-            coord: tile.coord,
-          });
-        }
-      }
+    for (const message of game.board.message_template) {
+      wsSend(ws, message);
     }
   };
 };

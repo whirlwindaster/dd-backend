@@ -99,6 +99,8 @@ export const post_create = async (
     ctx.response.status = 201;
     ctx.response.redirect(
       // styled url
+      // TODO: this should not be my-interface-specific
+      // give some success flag and let front end handle redirection
       `${ctx.request.headers.get("Referer")}er/game`,
     );
   } catch (error) {

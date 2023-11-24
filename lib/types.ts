@@ -1,4 +1,4 @@
-export type GamePhase = "join" | "bid" | "demonstrate" | "cleanup" | "end";
+export type GamePhase = "join" | "bid" | "demonstrate" | "end";
 
 export type RobotColor = keyof RobotPositions; // "r" | "y" | "g" | "u" | "b"
 export type GoalColor = "r" | "y" | "g" | "u" | "m";
@@ -39,7 +39,7 @@ export interface MessageToPlayer {
   old_coord?: Coordinate;
   num_moves?: number;
   is_best_bid?: boolean;
-  is_demonstrator?: boolean;
+  demonstrator?: string;
   scorer?: string;
   bidder?: string;
   seconds?: number;
@@ -56,8 +56,9 @@ export interface MessageToAPI {
 export interface GameState {
   phase: GamePhase;
   round: number;
-  timeout: number;
-  interval: number;
+  timeout_id: number;
+  goal: Goal;
+  bid: Bid;
 }
 
 export const DEFAULT = {
@@ -125,12 +126,12 @@ export interface Database {
           time_started: string | null;
         };
         Insert: {
-          board_setup_num?: number;
-          demo_timeout?: number;
+          board_setup_num: number;
+          demo_timeout: number;
           id?: number;
-          num_rounds?: number;
-          post_bid_timeout?: number;
-          pre_bid_timeout?: number;
+          num_rounds: number;
+          post_bid_timeout: number;
+          pre_bid_timeout: number;
           time_created?: string | null;
           time_started?: string | null;
         };
@@ -158,7 +159,7 @@ export interface Database {
           game_id: number;
           id?: number;
           is_host?: boolean;
-          name?: string;
+          name: string;
           uuid?: string;
         };
         Update: {
@@ -203,7 +204,11 @@ export type GameInsert = Database["public"]["Tables"]["game"]["Insert"];
 export type GameColumn = keyof GameInfo;
 
 export class Stack<T> {
-  #data: T[] = [];
+  #data: T[];
+
+  constructor(arr?: T[]) {
+    this.#data = arr ? arr : [];
+  }
 
   push(value: T, sortCallback?: (lhs: T, rhs: T) => boolean) {
     this.#data.push(value);
@@ -217,7 +222,7 @@ export class Stack<T> {
         // keep element on top if true
         break;
       }
-      const tmp = this.#data[i]
+      const tmp = this.#data[i];
       this.#data[i] = this.#data[i - 1];
       this.#data[i - 1] = tmp;
     }
@@ -231,11 +236,19 @@ export class Stack<T> {
     return this.#data[this.#data.length - 1];
   }
 
+  clear() {
+    this.#data = [];
+  }
+
   size(): number {
     return this.#data.length;
   }
 
   empty(): boolean {
     return this.#data.length === 0;
+  }
+
+  some(callback: (e: T) => boolean): boolean {
+    return this.#data.some(callback);
   }
 }

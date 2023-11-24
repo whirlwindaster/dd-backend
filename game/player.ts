@@ -15,8 +15,8 @@ export class Player {
     this.#ws = ws;
   }
 
-  send(messages: MessageToPlayer[]) {
-    wsSend(this.#ws, messages);
+  send(message: MessageToPlayer) {
+    wsSend(this.#ws, message);
   }
 
   disconnect() {

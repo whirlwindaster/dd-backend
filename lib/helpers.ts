@@ -8,24 +8,27 @@ export function toSeconds(milliseconds: number) {
   return milliseconds / 1000;
 }
 
-// we could make this take an array of messages in order to send multiple messages at once
 export function wsSend(
   ws: WebSocket,
-  message: MessageToPlayer | MessageToPlayer[],
+  message: MessageToPlayer,
 ) {
   if (ws.readyState !== 1) {
     return;
   }
 
-  if (Array.isArray(message)) {
-    for (const msg of message) {
-      ws.send(JSON.stringify(msg));
-    }
-  } else {
-    ws.send(JSON.stringify(message));
-  }
+  ws.send(JSON.stringify(message));
 }
 
 export function parseMessage(msg: MessageEvent) {
   return JSON.parse(msg.data) as MessageToAPI;
+}
+
+export function shuffleArray<T>(arr: T[]) {
+  // shuffles array in-place and returns it.
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+
+  return arr;
 }
