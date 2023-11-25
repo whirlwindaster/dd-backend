@@ -2,33 +2,46 @@ import * as db from "../lib/db.ts";
 import { Game } from "../game/game.ts";
 import { parseMessage, wsSend } from "../lib/helpers.ts";
 import { encode } from "../lib/id_cipher.ts";
-import { PlayerInfo } from "../lib/types.ts";
+import {
+  GenericMessageToAPI,
+  MessageSchemas,
+  PlayerInfo,
+} from "../lib/types.ts";
+import {
+  isSchema,
+  isValidSchema,
+  Schema,
+  validate,
+} from "https://deno.land/x/jtd@v0.1.0/mod.ts";
 
 export const onOpen = (player_info: PlayerInfo, game: Game, ws: WebSocket) => {
   return () => {
     game.addPlayer(player_info, ws);
 
     wsSend(ws, {
-      category: "game_code",
+      category: "check_in",
       game_code: encode(player_info.game_id),
+      is_host: player_info.is_host,
+      right_walls: game.board.right_walls,
+      bottom_walls: game.board.bottom_walls,
+      goals: game.board.goals,
     });
-
-    if (player_info.is_host) {
-      wsSend(ws, {
-        category: "you_are_host",
-      });
-    }
-
-    for (const message of game.board.message_template) {
-      wsSend(ws, message);
-    }
   };
 };
 
 export const onMessage = (uuid: string, game: Game) => {
   return (m: MessageEvent) => {
     const message = parseMessage(m);
-    game.gameEvent(uuid, message);
+    // schema is validated but NOT values
+    if (
+      !isSchema(message) || !isValidSchema(message) ||
+      MessageSchemas.some((schema) => {
+        validate(schema, message, { maxDepth: 3, maxErrors: 1 }).length > 0;
+      })
+    ) {
+      return;
+    }
+    game.gameEvent(uuid, message as GenericMessageToAPI);
   };
 };
 

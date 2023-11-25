@@ -14,6 +14,8 @@ export default class Board {
   size = 16;
   tiles: Tile[][];
   goals: Goal[];
+  right_walls: Coordinate[];
+  bottom_walls: Coordinate[];
   current_positions: RobotPositions = {
     r: { x: 0, y: 0 },
     y: { x: 0, y: 0 },
@@ -22,11 +24,14 @@ export default class Board {
     b: { x: 0, y: 0 },
   };
   saved_positions: RobotPositions;
-  message_template: MessageToPlayer[];
 
   constructor(setup_num: number) {
-    ({ tiles: this.tiles, goals: this.goals, messages: this.message_template } =
-      setup[setup_num - 1]());
+    ({
+      tiles: this.tiles,
+      goals: this.goals,
+      rightWallCoords: this.right_walls,
+      bottomWallCoords: this.bottom_walls,
+    } = setup[setup_num - 1]());
 
     this.populateRobots();
     this.saved_positions = { ...this.current_positions };
