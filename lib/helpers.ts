@@ -1,4 +1,4 @@
-import { MessageToAPI, MessageToPlayer } from "./types.ts";
+import { GenericMessageToPlayer } from "./types.ts";
 
 export function toMilliseconds(seconds: number) {
   return seconds * 1000;
@@ -10,7 +10,7 @@ export function toSeconds(milliseconds: number) {
 
 export function wsSend(
   ws: WebSocket,
-  message: MessageToPlayer,
+  message: GenericMessageToPlayer,
 ) {
   if (ws.readyState !== 1) {
     return;
@@ -20,7 +20,7 @@ export function wsSend(
 }
 
 export function parseMessage(msg: MessageEvent) {
-  return JSON.parse(msg.data) as MessageToAPI;
+  return JSON.parse(msg.data);
 }
 
 export function shuffleArray<T>(arr: T[]) {

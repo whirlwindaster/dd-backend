@@ -1,5 +1,9 @@
 import { wsSend } from "../lib/helpers.ts";
-import { MessageToPlayer, PlayerInfo } from "../lib/types.ts";
+import {
+  GenericMessageToPlayer,
+  MessageToPlayer,
+  PlayerInfo,
+} from "../lib/types.ts";
 
 export class Player {
   name: string;
@@ -15,7 +19,7 @@ export class Player {
     this.#ws = ws;
   }
 
-  send(message: MessageToPlayer) {
+  send(message: GenericMessageToPlayer) {
     wsSend(this.#ws, message);
   }
 

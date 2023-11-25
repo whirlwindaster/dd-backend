@@ -1,8 +1,7 @@
 import { BoardSetup, Coordinate, Goal, Tile } from "../lib/types.ts";
-import { MessageToPlayer } from "../lib/types.ts";
 
 const b1 = () => {
-  const rightWallCoord: Coordinate[] = [
+  const rightWallCoords: Coordinate[] = [
       { x: 3, y: 0 },
       { x: 10, y: 0 },
       { x: 8, y: 1 },
@@ -25,7 +24,7 @@ const b1 = () => {
       { x: 5, y: 15 },
       { x: 11, y: 1 },
     ],
-    bottomWallCoord: Coordinate[] = [
+    bottomWallCoords: Coordinate[] = [
       { x: 9, y: 1 },
       { x: 14, y: 1 },
       { x: 5, y: 2 },
@@ -67,45 +66,19 @@ const b1 = () => {
       { color: "y", shape: "gear", coord: { x: 14, y: 12 } },
       { color: "m", shape: "vortex", coord: { x: 8, y: 10 } },
     ],
-    tiles = dflt(),
-    messages: MessageToPlayer[] = [];
+    tiles = dflt()
 
-  for (const c of rightWallCoord) {
+  for (const c of rightWallCoords) {
     tiles[c.x][c.y].right_wall = true;
-    messages.push({
-      category: "wall_pos",
-      coord: {
-        x: c.x,
-        y: c.y,
-      },
-      right_wall: true,
-    });
   }
-  for (const c of bottomWallCoord) {
+  for (const c of bottomWallCoords) {
     tiles[c.x][c.y].bottom_wall = true;
-    messages.push({
-      category: "wall_pos",
-      coord: {
-        x: c.x,
-        y: c.y,
-      },
-      bottom_wall: true,
-    });
   }
   for (const g of goals) {
     tiles[g.coord.x][g.coord.y].goal = g;
-    messages.push({
-      category: "goal_pos",
-      coord: {
-        x: g.coord.x,
-        y: g.coord.y,
-      },
-      goal_color: g.color,
-      goal_shape: g.shape,
-    });
   }
 
-  return { tiles, goals, messages };
+  return { tiles, goals, rightWallCoords, bottomWallCoords };
 };
 
 function dflt(): Tile[][] {

@@ -1,57 +1,129 @@
-export type GamePhase = "join" | "bid" | "demonstrate" | "end";
+import { Schema } from "https://deno.land/x/jtd@v0.1.0/schema.ts";
 
+export type GamePhase = "join" | "bid" | "demonstrate" | "end";
 export type RobotColor = keyof RobotPositions; // "r" | "y" | "g" | "u" | "b"
 export type GoalColor = "r" | "y" | "g" | "u" | "m";
 export type GoalShape = "vortex" | "crescent" | "star" | "gear" | "planet";
-
 export type Direction = "up" | "down" | "left" | "right";
-
 export interface Coordinate {
   x: number;
   y: number;
 }
 
-export interface MessageToPlayer {
-  category:
-    | "log"
-    | "game_code"
-    | "you_are_host"
-    | "players_update"
-    | "wall_pos"
-    | "goal_pos"
-    | "robot_pos"
-    | "start"
-    | "bid"
-    | "timer"
-    | "current_goal"
-    | "demonstrator"
-    | "score"
-    | "new_round";
+interface BaseMessageToPlayer {
+  category: string;
   log?: string;
-  game_code?: string;
-  player_names?: string;
-  bottom_wall?: boolean;
-  right_wall?: boolean;
-  goal_color?: GoalColor;
-  goal_shape?: GoalShape;
-  robot_color?: RobotColor;
-  coord?: Coordinate;
-  old_coord?: Coordinate;
-  num_moves?: number;
-  is_best_bid?: boolean;
-  demonstrator?: string;
-  scorer?: string;
-  bidder?: string;
-  seconds?: number;
-  round?: number;
 }
+export interface Log extends BaseMessageToPlayer {
+  category: "log";
+  log: string;
+}
+export interface CheckIn extends BaseMessageToPlayer {
+  category: "check_in";
+  game_code: string;
+  is_host: boolean;
+  right_walls: Coordinate[];
+  bottom_walls: Coordinate[];
+  goals: Goal[];
+}
+export interface PlayerUpdate extends BaseMessageToPlayer {
+  category: "player_update";
+  name: string;
+  add: boolean;
+}
+export interface RobotUpdate extends BaseMessageToPlayer {
+  category: "robot_update";
+  robots: [RobotColor, Coordinate][];
+}
+export interface Timer extends BaseMessageToPlayer {
+  category: "timer";
+  seconds: number;
+}
+export interface Start extends BaseMessageToPlayer {
+  category: "start";
+  robots: [RobotColor, Coordinate][];
+}
+export interface NewRound extends BaseMessageToPlayer {
+  category: "new_round";
+  goal: {
+    color: GoalColor;
+    shape: GoalShape;
+  };
+  log: string;
+}
+export interface BidNotif extends BaseMessageToPlayer {
+  category: "bid";
+  name: string;
+  moves: number;
+  log: string;
+}
+export interface Demonstrator extends BaseMessageToPlayer {
+  category: "demonstrator";
+  name: string;
+  log: string;
+}
+export interface Score extends BaseMessageToPlayer {
+  category: "score";
+  name: string;
+  points: number;
+  log: string;
+}
+export type GenericMessageToPlayer =
+  | Log
+  | CheckIn
+  | PlayerUpdate
+  | RobotUpdate
+  | Timer
+  | Start
+  | NewRound
+  | BidNotif
+  | Demonstrator
+  | Score;
 
-export interface MessageToAPI {
-  category: "start" | "next_round" | "bid" | "move" | "leave";
-  num_moves?: number;
-  robot?: RobotColor;
-  direction?: Direction;
+export interface StartRequest {
+  category: "start";
 }
+export interface BidRequest {
+  category: "bid";
+  moves: number;
+}
+export interface MoveRequest {
+  category: "move";
+  robot: RobotColor;
+  direction: Direction;
+}
+export interface Leave {
+  category: "leave";
+}
+export type GenericMessageToAPI =
+  | StartRequest
+  | BidRequest
+  | MoveRequest
+  | Leave;
+
+const StartRequestSchema: Schema = {
+    properties: {
+      category: { type: "string" },
+    },
+  },
+  BidRequestSchema = {
+    properties: {
+      category: { type: "string" },
+      moves: { type: "uint32" },
+    },
+  } as Schema,
+  MoveRequestSchema = {
+    properties: {
+      category: { type: "string" },
+      robot: { type: "string" },
+      direction: { type: "string" },
+    },
+  } as Schema;
+export const MessageSchemas = [
+  StartRequestSchema,
+  BidRequestSchema,
+  MoveRequestSchema,
+];
 
 export interface GameState {
   phase: GamePhase;
@@ -92,7 +164,8 @@ export interface Bid {
 export interface BoardSetup {
   tiles: Tile[][];
   goals: Goal[];
-  messages: MessageToPlayer[];
+  rightWallCoords: Coordinate[];
+  bottomWallCoords: Coordinate[];
 }
 
 export interface RobotPositions {

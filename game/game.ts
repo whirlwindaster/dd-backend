@@ -1,15 +1,19 @@
 import {
   Bid,
+  Coordinate,
   Direction,
   GameInfo,
   GameInsert,
   GameState,
+  GenericMessageToAPI,
+  GenericMessageToPlayer,
   Goal,
-  MessageToAPI,
   MessageToPlayer,
   PlayerInfo,
+  PlayerUpdate,
   RobotColor,
   RobotPositions,
+  Score,
   Stack,
 } from "../lib/types.ts";
 import { Player } from "./player.ts";
@@ -69,15 +73,10 @@ export class Game {
   // TODO: implement players as set
   addPlayer(player_info: PlayerInfo, ws: WebSocket) {
     this.players.set(player_info.uuid, new Player(player_info, ws));
-    let names = "";
-    for (const value of this.players.values()) {
-      // this is a really stupid way to implement this lmfao
-      // need to make & an invalid character
-      names = `${names}${value.name}&`;
-    }
     this.#sendToAllPlayers({
-      category: "players_update",
-      player_names: names.substring(0, names.length - 1),
+      category: "player_update",
+      name: player_info.name,
+      add: true,
     });
   }
 
@@ -85,7 +84,7 @@ export class Game {
     this.players.delete(uuid);
   }
 
-  #sendToAllPlayers(message: MessageToPlayer) {
+  #sendToAllPlayers(message: GenericMessageToPlayer) {
     this.players.forEach((p) => p.send(message));
   }
 
@@ -102,15 +101,18 @@ export class Game {
       this.endGame();
       return;
     }
+    // send robot positions
     this.board.saveRobotPositions();
     this.bids.clear();
     this.#state.round++;
     this.#state.goal = this.goalStack.pop()!;
     this.bidPhase();
     this.#sendToAllPlayers({
-      category: "current_goal",
-      goal_color: this.#state.goal.color,
-      goal_shape: this.#state.goal.shape,
+      category: "new_round",
+      goal: {
+        color: this.#state.goal.color,
+        shape: this.#state.goal.shape,
+      },
       log: `beginning round ${this.#state.round}`,
     });
   }
@@ -133,9 +135,9 @@ export class Game {
     this.#state.bid = this.bids.pop()!;
     this.players.get(this.#state.bid.uuid)?.send({
       category: "demonstrator",
-      demonstrator: this.players.get(this.#state.bid.uuid)?.name,
+      name: this.players.get(this.#state.bid.uuid)!.name,
       log: `${
-        this.players.get(this.#state.bid.uuid)?.name
+        this.players.get(this.#state.bid.uuid)!.name
       } demonstrating ${this.#state.bid.moves} moves`,
     });
     this.m_setTimeout(this.demoPhase.bind(this), this.config.demo_timeout);
@@ -170,15 +172,18 @@ export class Game {
     }
   }
 
-  gameEvent(from_uuid: string, message: MessageToAPI) {
+  gameEvent(from_uuid: string, message: GenericMessageToAPI) {
     switch (message.category) {
       case "start": {
         if (this.#state.phase !== "join" || from_uuid !== this.host_uuid) {
           return;
         }
-        this.sendRobotPositions();
         this.#sendToAllPlayers({
           category: "start",
+          robots: Object.entries(this.board.current_positions) as [
+            RobotColor,
+            Coordinate,
+          ][],
         });
         this.setupRound();
         break;
@@ -186,24 +191,24 @@ export class Game {
       case "bid": {
         if (
           this.#state.phase !== "bid" || !this.players.has(from_uuid) ||
-          !message.num_moves || message.num_moves < 2
+          !message.moves || message.moves < 2
         ) {
           return;
         }
 
         const new_bid: Bid = {
           uuid: from_uuid,
-          moves: message.num_moves,
+          moves: message.moves,
           timestamp: Date.now(),
         };
         this.bids.push(new_bid);
         this.#sendToAllPlayers({
           category: "bid",
-          bidder: this.players.get(from_uuid)?.name,
-          num_moves: message.num_moves,
+          name: this.players.get(from_uuid)?.name || "unknown",
+          moves: message.moves,
           log: `${
             this.players.get(from_uuid)?.name
-          } bids ${message.num_moves} moves`,
+          } bids ${message.moves} moves`,
         });
 
         if (this.bids.size() === 1) {
@@ -212,14 +217,15 @@ export class Game {
             this.config.post_bid_timeout,
           );
         }
-
         break;
       }
       case "move": {
         if (
           this.#state.phase !== "demonstrate" ||
           from_uuid !== this.#state.bid.uuid || !message.robot ||
-          !message.direction
+          !message.direction ||
+          !(message.robot in this.board.current_positions) ||
+          !["up", "down", "left", "right"].includes(message.direction)
         ) {
           return;
         }
@@ -234,7 +240,8 @@ export class Game {
           }
           this.#sendToAllPlayers({
             category: "score",
-            scorer: this.players.get(from_uuid)?.name,
+            name: this.players.get(from_uuid)?.name || "unknown",
+            points: 1,
             log: `${this.players.get(from_uuid)?.name} wins this round!`,
           });
           this.setupRound();
@@ -242,6 +249,11 @@ export class Game {
         break;
       }
       case "leave": {
+        this.#sendToAllPlayers({
+          category: "player_update",
+          name: this.players.get(from_uuid)?.name || "",
+          add: false,
+        });
         this.players.delete(from_uuid);
         if (!this.players.size) {
           active_games.delete(this.id);
@@ -357,7 +369,7 @@ export class Game {
 
   // from_uuid of "0" means from game
   gameEvent(from_uuid: string, message: MessageToAPI) {
-    switch (message.category) {
+    switch (message.type) {
       case ("start"): {
         if (this.host_uuid !== from_uuid || this.#state.phase !== "join") {
           return;
@@ -510,21 +522,19 @@ export class Game {
     }
 
     this.#sendToAllPlayers({
-      category: "robot_pos",
-      robot_color: color,
-      coord: new_coord,
+      category: "robot_update",
+      robots: [[color, new_coord]],
     });
   }
 
   sendRobotPositions() {
-    let color: keyof RobotPositions;
-    for (color in this.board.current_positions) {
-      this.#sendToAllPlayers({
-        category: "robot_pos",
-        robot_color: color,
-        coord: this.board.current_positions[color],
-      });
-    }
+    this.#sendToAllPlayers({
+      category: "robot_update",
+      robots: Object.entries(this.board.current_positions) as [
+        RobotColor,
+        Coordinate,
+      ][],
+    });
   }
 
   getWinners(): Player[] {
