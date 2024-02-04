@@ -10,7 +10,6 @@ import {
 import {
   isSchema,
   isValidSchema,
-  Schema,
   validate,
 } from "https://deno.land/x/jtd@v0.1.0/mod.ts";
 
@@ -19,6 +18,7 @@ export const onOpen = (player_info: PlayerInfo, game: Game, ws: WebSocket) => {
     game.addPlayer(player_info, ws);
 
     wsSend(ws, {
+      name: player_info.name,
       category: "check_in",
       game_code: encode(player_info.game_id),
       is_host: player_info.is_host,

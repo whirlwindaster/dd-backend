@@ -8,7 +8,6 @@ import {
   GenericMessageToAPI,
   GenericMessageToPlayer,
   Goal,
-  MessageToPlayer,
   PlayerInfo,
   PlayerUpdate,
   RobotColor,
@@ -109,10 +108,7 @@ export class Game {
     this.bidPhase();
     this.#sendToAllPlayers({
       category: "new_round",
-      goal: {
-        color: this.#state.goal.color,
-        shape: this.#state.goal.shape,
-      },
+      goal: this.#state.goal,
       log: `beginning round ${this.#state.round}`,
     });
   }

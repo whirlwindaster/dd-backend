@@ -2,10 +2,8 @@ import {
   Coordinate,
   Direction,
   Goal,
-  MessageToPlayer,
   RobotColor,
   RobotPositions,
-  Stack,
   Tile,
 } from "../lib/types.ts";
 import { setup } from "./boardsetter.ts";
