@@ -27,7 +27,7 @@ export const get_ws = async (
     column: "uuid",
     equals: uuid,
   }))[0];
-  if (!(player_info.game_id)) {
+  if (!player_info || !(player_info.game_id)) {
     ctx.throw(403);
   }
   const game = active_games.get(player_info.game_id);
@@ -35,9 +35,7 @@ export const get_ws = async (
     ctx.throw(500);
   }
 
-  console.log("upgrading to ws");
   const ws = ctx.upgrade();
-  console.log("done");
   ws.onopen = onOpen(player_info, game, ws);
   ws.onmessage = onMessage(player_info.uuid, game);
   ws.onclose = onClose(player_info, game);
@@ -91,7 +89,6 @@ export const post_create = async (
         is_host: true,
       }))[0];
 
-    // TODO: do game instance stuff
     gameFactory(
       player_info,
       game_cfg,
