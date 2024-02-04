@@ -42,7 +42,6 @@ export interface Timer extends BaseMessageToPlayer {
 }
 export interface Start extends BaseMessageToPlayer {
   category: "start";
-  robots: [RobotColor, Coordinate][];
 }
 export interface NewRound extends BaseMessageToPlayer {
   category: "new_round";

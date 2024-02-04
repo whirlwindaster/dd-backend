@@ -32,15 +32,18 @@ export const onOpen = (player_info: PlayerInfo, game: Game, ws: WebSocket) => {
 export const onMessage = (uuid: string, game: Game) => {
   return (m: MessageEvent) => {
     const message = parseMessage(m);
+    console.log(`message received: ${JSON.stringify(message)}`);
     // schema is validated but NOT values
+    console.log(`isSchema: ${isSchema(message)} isValidSchema: ${isValidSchema(message)}}`)
     if (
-      !isSchema(message) || !isValidSchema(message) ||
+      //!isSchema(message) || !isValidSchema(message) ||
       MessageSchemas.some((schema) => {
         validate(schema, message, { maxDepth: 3, maxErrors: 1 }).length > 0;
       })
     ) {
       return;
     }
+    console.log("message accepted");
     game.gameEvent(uuid, message as GenericMessageToAPI);
   };
 };

@@ -35,6 +35,7 @@ export async function selectFromPlayer(
     .eq(where.column, where.equals);
 
   if (error) throw new Error(error.message);
+
   return data;
 }
 
