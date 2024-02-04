@@ -1,9 +1,5 @@
 import { wsSend } from "../lib/helpers.ts";
-import {
-  GenericMessageToPlayer,
-  MessageToPlayer,
-  PlayerInfo,
-} from "../lib/types.ts";
+import { GenericMessageToPlayer, PlayerInfo } from "../lib/types.ts";
 
 export class Player {
   name: string;

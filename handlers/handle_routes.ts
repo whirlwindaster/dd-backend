@@ -35,7 +35,9 @@ export const get_ws = async (
     ctx.throw(500);
   }
 
+  console.log("upgrading to ws");
   const ws = ctx.upgrade();
+  console.log("done");
   ws.onopen = onOpen(player_info, game, ws);
   ws.onmessage = onMessage(player_info.uuid, game);
   ws.onclose = onClose(player_info, game);

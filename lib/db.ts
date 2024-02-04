@@ -1,4 +1,3 @@
-// deno-lint-ignore-file no-explicit-any
 import { createClient } from "supabase";
 import "$std/dotenv/load.ts";
 import {
@@ -49,7 +48,10 @@ export async function insertIntoGame(
     ])
     .select();
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    console.log(error.message);
+    throw new Error(error.message);
+  }
   return data;
 }
 

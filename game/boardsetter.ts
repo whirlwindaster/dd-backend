@@ -66,7 +66,7 @@ const b1 = () => {
       { color: "y", shape: "gear", coord: { x: 14, y: 12 } },
       { color: "m", shape: "vortex", coord: { x: 8, y: 10 } },
     ],
-    tiles = dflt()
+    tiles = dflt();
 
   for (const c of rightWallCoords) {
     tiles[c.x][c.y].right_wall = true;

@@ -20,6 +20,7 @@ export interface Log extends BaseMessageToPlayer {
 }
 export interface CheckIn extends BaseMessageToPlayer {
   category: "check_in";
+  name: string;
   game_code: string;
   is_host: boolean;
   right_walls: Coordinate[];
@@ -45,10 +46,7 @@ export interface Start extends BaseMessageToPlayer {
 }
 export interface NewRound extends BaseMessageToPlayer {
   category: "new_round";
-  goal: {
-    color: GoalColor;
-    shape: GoalShape;
-  };
+  goal: Goal;
   log: string;
 }
 export interface BidNotif extends BaseMessageToPlayer {
