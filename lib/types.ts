@@ -23,6 +23,7 @@ export interface CheckIn extends BaseMessageToPlayer {
   name: string;
   game_code: string;
   is_host: boolean;
+  players: string[];
   right_walls: Coordinate[];
   bottom_walls: Coordinate[];
   goals: Goal[];
