@@ -3,7 +3,7 @@ import { RouterContext } from "oak/mod.ts";
 import { active_games, gameFactory } from "../game/game.ts";
 import { onClose, onMessage, onOpen } from "./handle_ws.ts";
 import { toMilliseconds } from "../lib/helpers.ts";
-import { DEFAULT, GameInsert } from "../lib/types.ts";
+import { DEFAULT_CONFIG, GameInsert } from "../lib/types.ts";
 import { decode } from "../lib/id_cipher.ts";
 
 export const get_ws = async (
@@ -14,6 +14,7 @@ export const get_ws = async (
     Record<string, any>
   >,
 ) => {
+  // this error handling is so dogshit lmao
   if (!ctx.isUpgradable) {
     ctx.throw(501);
   }
@@ -51,6 +52,7 @@ export const post_create = async (
 ) => {
   const params: URLSearchParams = await ctx.request.body().value,
     name = params.get("name");
+  params.forEach((v, k) => console.log(`${k}: ${v}`));
   if (!name) {
     ctx.response.status = 400;
     ctx.response.redirect(`${ctx.request.headers.get("Referer")}`);
@@ -59,24 +61,24 @@ export const post_create = async (
   const game_cfg: GameInsert = {
     num_rounds: params.has("num_rounds")
       ? parseInt(params.get("num_rounds")!)
-      : DEFAULT.num_rounds,
+      : DEFAULT_CONFIG.num_rounds,
     board_setup_num: params.has("board_setup_num")
       ? parseInt(params.get("board_setup_num")!)
-      : DEFAULT.board_setup_num,
+      : DEFAULT_CONFIG.board_setup_num,
     pre_bid_timeout: toMilliseconds(
       params.has("pre_bid_timeout")
         ? parseInt(params.get("pre_bid_timeout")!)
-        : DEFAULT.pre_bid_timeout,
+        : DEFAULT_CONFIG.pre_bid_timeout,
     ),
     post_bid_timeout: toMilliseconds(
       params.has("post_bid_timeout")
         ? parseInt(params.get("post_bid_timeout")!)
-        : DEFAULT.post_bid_timeout,
+        : DEFAULT_CONFIG.post_bid_timeout,
     ),
     demo_timeout: toMilliseconds(
-      params.has("pre_big_timeout")
-        ? parseInt(params.get("pre_bid_timeout")!)
-        : DEFAULT.demo_timeout,
+      params.has("demo_timeout")
+        ? parseInt(params.get("demo_timeout")!)
+        : DEFAULT_CONFIG.demo_timeout,
     ),
   };
 

@@ -23,6 +23,7 @@ export interface CheckIn extends BaseMessageToPlayer {
   name: string;
   game_code: string;
   is_host: boolean;
+  game_config: GameConfig
   players: string[];
   right_walls: Coordinate[];
   bottom_walls: Coordinate[];
@@ -131,13 +132,20 @@ export interface GameState {
   bid: Bid;
 }
 
-export const DEFAULT = {
+export const DEFAULT_CONFIG = {
   num_rounds: 8,
   board_setup_num: 1,
   pre_bid_timeout: 300,
   post_bid_timeout: 60,
   demo_timeout: 30,
-} as GameInfo;
+} as GameInsert;
+
+export interface GameConfig {
+  num_rounds: number;
+  pre_bid_timeout: number;
+  post_bid_timeout: number;
+  demo_timeout: number;
+}
 
 export interface Goal {
   color: GoalColor;
