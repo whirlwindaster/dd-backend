@@ -144,7 +144,16 @@ export class Game {
         this.players.get(this.#state.bid.uuid)!.name
       } demonstrating ${this.#state.bid.moves} moves`,
     });
-    this.m_setTimeout(this.demoPhase.bind(this), this.config.demo_timeout);
+    this.m_setTimeout(() => {
+      if (this.players.has(this.#state.bid.uuid)) this.players.get(this.#state.bid.uuid)!.score--;
+        this.#sendToAllPlayers({
+          category: "score",
+          name: this.players.get(this.#state.bid.uuid)?.name || "unknown",
+          points: -1,
+          log: `${this.players.get(this.#state.bid.uuid)?.name} failed the demonstration`,
+        });
+      this.demoPhase.bind(this)()
+    }, this.config.demo_timeout);
   }
   endGame() {
     const winners = this.getWinners();
@@ -167,9 +176,9 @@ export class Game {
         {
           this.#sendToAllPlayers({
             category: "log",
-            log: `${winners.slice(0, -1).join(", ")}, and ${
-              winners[winners.length - 1]
-            } tie for first with ${winners[0].score} point(s)!}`,
+            log: `${winners.slice(0, -1).map(w => w.name).join(", ")} and ${
+              winners[winners.length - 1].name
+            } tie for first with ${winners[0].score} point(s)!`,
           });
         }
         this.#closeAllConnetions();
@@ -239,9 +248,18 @@ export class Game {
         if (this.#state.bid.moves < 1) {
           clearTimeout(this.#state.timeout_id);
           if (!this.board.isSolved(this.#state.goal)) {
+            if (this.players.has(from_uuid)) this.players.get(this.#state.bid.uuid)!.score--;
+            this.#sendToAllPlayers({
+              category: "score",
+              name: this.players.get(from_uuid)?.name || "unknown",
+              points: -1,
+              log: `${this.players.get(from_uuid)?.name} failed the demonstration`,
+            });
             this.demoPhase();
             return;
           }
+          
+          if (this.players.has(from_uuid)) this.players.get(this.#state.bid.uuid)!.score++;
           this.#sendToAllPlayers({
             category: "score",
             name: this.players.get(from_uuid)?.name || "unknown",
