@@ -162,16 +162,16 @@ export default class Board {
     return { ...destination_tile.coord };
   }
 
-  isSolved(): boolean {
+  isSolved(goal: Goal): boolean {
     const robot_on_goal_tile = this
-      .tiles[this.goals[0].coord.x][this.goals[0].coord.y]
+      .tiles[goal.coord.x][goal.coord.y]
       .robot;
 
     if (robot_on_goal_tile) {
-      if (this.goals[0].color === "m") {
+      if (goal.color === "m") {
         return true;
       }
-      return (this.goals[0].color === robot_on_goal_tile);
+      return (goal.color === robot_on_goal_tile);
     }
     return false;
   }

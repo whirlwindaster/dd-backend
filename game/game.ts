@@ -17,7 +17,7 @@ import {
 } from "../lib/types.ts";
 import { Player } from "./player.ts";
 import Board from "./board.ts";
-import { shuffleArray, toSeconds } from "../lib/helpers.ts";
+import { shuffleArray, toSeconds, wsSend } from "../lib/helpers.ts";
 import * as db from "../lib/db.ts";
 
 export const active_games = new Map<number, Game>();
@@ -71,6 +71,13 @@ export class Game {
 
   // TODO: implement players as set
   addPlayer(player_info: PlayerInfo, ws: WebSocket) {
+    for (const [_, v] of this.players) {
+      wsSend(ws, {
+        category: "player_update",
+        name: v.name,
+        add: true
+      });
+    }
     this.players.set(player_info.uuid, new Player(player_info, ws));
     this.#sendToAllPlayers({
       category: "player_update",
@@ -130,7 +137,7 @@ export class Game {
     }
     this.#state.phase = "demonstrate";
     this.#state.bid = this.bids.pop()!;
-    this.players.get(this.#state.bid.uuid)?.send({
+    this.#sendToAllPlayers({
       category: "demonstrator",
       name: this.players.get(this.#state.bid.uuid)!.name,
       log: `${
@@ -198,7 +205,7 @@ export class Game {
           moves: message.moves,
           timestamp: Date.now(),
         };
-        this.bids.push(new_bid);
+        this.bids.push(new_bid, (high, low) => high.moves < low.moves);
         this.#sendToAllPlayers({
           category: "bid",
           name: this.players.get(from_uuid)?.name || "unknown",
@@ -231,7 +238,7 @@ export class Game {
         this.#state.bid.moves--;
         if (this.#state.bid.moves < 1) {
           clearTimeout(this.#state.timeout_id);
-          if (!this.board.isSolved()) {
+          if (!this.board.isSolved(this.#state.goal)) {
             this.demoPhase();
             return;
           }
