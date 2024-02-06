@@ -14,26 +14,37 @@ export const get_ws = async (
     Record<string, any>
   >,
 ) => {
-  // this error handling is so dogshit lmao
+  // TODO this error handling is so dogshit lmao
   if (!ctx.isUpgradable) {
-    ctx.throw(501);
+    ctx.response.status = 400;
+    ctx.response.body = "not upgradable";
+    return;
   }
 
-  const name = await ctx.cookies.get(`${Deno.env.get("COOKIE_PREFIX")}name`),
-    uuid = await ctx.cookies.get(`${Deno.env.get("COOKIE_PREFIX")}uuid`);
+  // TODO these need to come from params of request
+  
+  const params: URLSearchParams = await ctx.request.body().value,
+    name = params.get("name"),
+    uuid = params.get("uuid");
   if (!name || !uuid) {
-    ctx.throw(400);
+    ctx.response.status = 400;
+    ctx.response.body = `${name ? "" : "no name "}${uuid ? "" : "no uuid"}`;
+    return;
   }
   const player_info = (await db.selectFromPlayer({
     column: "uuid",
     equals: uuid,
   }))[0];
   if (!player_info || !(player_info.game_id)) {
-    ctx.throw(403);
+    ctx.response.status = 403;
+    ctx.response.body = "player not found";
+    return;
   }
   const game = active_games.get(player_info.game_id);
   if (!game) {
-    ctx.throw(500);
+    ctx.response.status = 500;
+    ctx.response.body = "internal server error";
+    return;
   }
 
   const ws = ctx.upgrade();
@@ -50,37 +61,24 @@ export const post_create = async (
     Record<string, any>
   >,
 ) => {
-  const params: URLSearchParams = await ctx.request.body().value,
-    name = params.get("name");
-  params.forEach((v, k) => console.log(`${k}: ${v}`));
+  const params = (await (await ctx.request.body({ type: "form-data" })).value.read()).fields;
+
+  console.log(JSON.stringify(params));
+    const name = params["name"];
   if (!name) {
     ctx.response.status = 400;
-    ctx.response.redirect(`${ctx.request.headers.get("Referer")}`);
+    ctx.response.body = "no name";
     return;
   }
   const game_cfg: GameInsert = {
-    num_rounds: params.has("num_rounds")
-      ? parseInt(params.get("num_rounds")!)
-      : DEFAULT_CONFIG.num_rounds,
-    board_setup_num: params.has("board_setup_num")
-      ? parseInt(params.get("board_setup_num")!)
-      : DEFAULT_CONFIG.board_setup_num,
-    pre_bid_timeout: toMilliseconds(
-      params.has("pre_bid_timeout")
-        ? parseInt(params.get("pre_bid_timeout")!)
-        : DEFAULT_CONFIG.pre_bid_timeout,
-    ),
-    post_bid_timeout: toMilliseconds(
-      params.has("post_bid_timeout")
-        ? parseInt(params.get("post_bid_timeout")!)
-        : DEFAULT_CONFIG.post_bid_timeout,
-    ),
-    demo_timeout: toMilliseconds(
-      params.has("demo_timeout")
-        ? parseInt(params.get("demo_timeout")!)
-        : DEFAULT_CONFIG.demo_timeout,
-    ),
+    num_rounds: parseInt(params["num_rounds"] || "") || DEFAULT_CONFIG.num_rounds,
+    board_setup_num: parseInt(params["board_setup_num"] || "") || DEFAULT_CONFIG.board_setup_num,
+    pre_bid_timeout: toMilliseconds(parseInt(params["pre_bid_timeout"] || "") || DEFAULT_CONFIG.pre_bid_timeout),
+    post_bid_timeout: toMilliseconds(parseInt(params["post_bid_timeout"] || "") || DEFAULT_CONFIG.post_bid_timeout),
+    demo_timeout: toMilliseconds(parseInt(params["demo_timeout"] || "") || DEFAULT_CONFIG.demo_timeout)
   };
+
+  console.log(`game insert: ${JSON.stringify(game_cfg)}`);
 
   try {
     // make game row first (player row needs a matching game_id)
@@ -95,20 +93,12 @@ export const post_create = async (
       player_info,
       game_cfg,
     );
-    ctx.cookies.set(`${Deno.env.get("COOKIE_PREFIX")}name`, name);
-    ctx.cookies.set(`${Deno.env.get("COOKIE_PREFIX")}uuid`, player_info.uuid);
     ctx.response.status = 201;
-    ctx.response.redirect(
-      // styled url
-      // TODO: this should not be my-interface-specific
-      // give some success flag and let front end handle redirection
-      `${ctx.request.headers.get("Referer")}er/game`,
-    );
+    ctx.response.body = player_info.uuid;
   } catch (error) {
     console.log(error);
     ctx.response.status = 400;
     ctx.response.body = error;
-    ctx.response.redirect(`${ctx.request.headers.get("Referer")}`);
   }
 };
 
@@ -128,7 +118,7 @@ export const post_join = async (
     !game_id_encoded
   ) {
     ctx.response.status = 400;
-    ctx.response.redirect(`${ctx.request.headers.get("Referer")}`);
+    ctx.response.body = `${name? "" : "no name "}${game_id_encoded? "" : "no game code"}`
     return;
   }
 
@@ -139,17 +129,12 @@ export const post_join = async (
       is_host: false,
     }))[0].uuid;
 
-    ctx.cookies.set(`${Deno.env.get("COOKIE_PREFIX")}name`, name);
-    ctx.cookies.set(`${Deno.env.get("COOKIE_PREFIX")}uuid`, uuid);
+    // TODO no cookies
     ctx.response.status = 201;
-    ctx.response.redirect(
-      // styled url
-      `${ctx.request.headers.get("Referer")}er/game`,
-    );
+    ctx.response.body = uuid;
   } catch (error) {
     console.log(error);
     ctx.response.status = 400;
     ctx.response.body = error;
-    ctx.response.redirect(`${ctx.request.headers.get("Referer")}`);
   }
 };
