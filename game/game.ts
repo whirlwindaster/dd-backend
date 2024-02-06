@@ -204,7 +204,8 @@ export class Game {
         console.log(`not bid phase: ${this.#state.phase !== "bid"} not has uuid: ${!this.players.has(from_uuid)} moves invalid: ${!message.moves || message.moves < 2}`);
         if (
           this.#state.phase !== "bid" || !this.players.has(from_uuid) ||
-          !message.moves || message.moves < 2
+          !message.moves || message.moves < 2 ||
+          this.bids.some((b) => from_uuid === b.uuid && message.moves === b.moves)
         ) {
           return;
         }
