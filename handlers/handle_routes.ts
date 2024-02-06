@@ -5,6 +5,7 @@ import { onClose, onMessage, onOpen } from "./handle_ws.ts";
 import { toMilliseconds } from "../lib/helpers.ts";
 import { DEFAULT_CONFIG, GameInsert } from "../lib/types.ts";
 import { decode } from "../lib/id_cipher.ts";
+import { cloneState } from "oak/structured_clone.ts";
 
 export const get_ws = async (
   ctx: RouterContext<
@@ -20,10 +21,8 @@ export const get_ws = async (
     ctx.response.body = "not upgradable";
     return;
   }
-
-  // TODO these need to come from params of request
   
-  const params: URLSearchParams = await ctx.request.body().value,
+  const params: URLSearchParams = await ctx.request.url.searchParams,
     name = params.get("name"),
     uuid = params.get("uuid");
   if (!name || !uuid) {
@@ -61,21 +60,50 @@ export const post_create = async (
     Record<string, any>
   >,
 ) => {
-  const params = (await (await ctx.request.body({ type: "form-data" })).value.read()).fields;
+  ctx.response.headers.set("Access-Control-Allow-Origin", "*");
+  ctx.response.headers.set("Access-Control-Allow-Methods", "POST");
+  
+  const body = ctx.request.body();
+  let fields: Record<string, string> = {};
+  switch (body.type) {
+    case ("form"): {
+      for (const [k, v] of (await body.value).entries()) {
+        fields[k] = v;
+      }
+      break;
+    }
+    case ("form-data"): {
+      fields = (await (await body.value.read())).fields;
+      break;
+    }
+    case ("json"): {
+      fields = await body.value;
+      break;
+    }
+    case ("text"): {
+      fields = JSON.parse(await body.value);
+      break;
+    }
+    default: {
+      ctx.response.status = 400;
+      ctx.response.body = "not supported"
+      return;
+    }
+  }
 
-  console.log(JSON.stringify(params));
-    const name = params["name"];
+  console.log(JSON.stringify(fields));
+    const name = fields["name"];
   if (!name) {
     ctx.response.status = 400;
     ctx.response.body = "no name";
     return;
   }
   const game_cfg: GameInsert = {
-    num_rounds: parseInt(params["num_rounds"] || "") || DEFAULT_CONFIG.num_rounds,
-    board_setup_num: parseInt(params["board_setup_num"] || "") || DEFAULT_CONFIG.board_setup_num,
-    pre_bid_timeout: toMilliseconds(parseInt(params["pre_bid_timeout"] || "") || DEFAULT_CONFIG.pre_bid_timeout),
-    post_bid_timeout: toMilliseconds(parseInt(params["post_bid_timeout"] || "") || DEFAULT_CONFIG.post_bid_timeout),
-    demo_timeout: toMilliseconds(parseInt(params["demo_timeout"] || "") || DEFAULT_CONFIG.demo_timeout)
+    num_rounds: parseInt(fields["num_rounds"] || "") || DEFAULT_CONFIG.num_rounds,
+    board_setup_num: parseInt(fields["board_setup_num"] || "") || DEFAULT_CONFIG.board_setup_num,
+    pre_bid_timeout: toMilliseconds(parseInt(fields["pre_bid_timeout"] || "") || DEFAULT_CONFIG.pre_bid_timeout),
+    post_bid_timeout: toMilliseconds(parseInt(fields["post_bid_timeout"] || "") || DEFAULT_CONFIG.post_bid_timeout),
+    demo_timeout: toMilliseconds(parseInt(fields["demo_timeout"] || "") || DEFAULT_CONFIG.demo_timeout)
   };
 
   console.log(`game insert: ${JSON.stringify(game_cfg)}`);
@@ -95,6 +123,7 @@ export const post_create = async (
     );
     ctx.response.status = 201;
     ctx.response.body = player_info.uuid;
+    
   } catch (error) {
     console.log(error);
     ctx.response.status = 400;
