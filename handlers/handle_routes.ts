@@ -5,7 +5,6 @@ import { onClose, onMessage, onOpen } from "./handle_ws.ts";
 import { toMilliseconds } from "../lib/helpers.ts";
 import { DEFAULT_CONFIG, GameInsert } from "../lib/types.ts";
 import { decode } from "../lib/id_cipher.ts";
-import { cloneState } from "oak/structured_clone.ts";
 
 export const get_ws = async (
   ctx: RouterContext<
@@ -15,19 +14,17 @@ export const get_ws = async (
     Record<string, any>
   >,
 ) => {
-  // TODO this error handling is so dogshit lmao
   if (!ctx.isUpgradable) {
     ctx.response.status = 400;
     ctx.response.body = "not upgradable";
     return;
   }
-  
+
   const params: URLSearchParams = await ctx.request.url.searchParams,
-    name = params.get("name"),
     uuid = params.get("uuid");
-  if (!name || !uuid) {
+  if (!uuid) {
     ctx.response.status = 400;
-    ctx.response.body = `${name ? "" : "no name "}${uuid ? "" : "no uuid"}`;
+    ctx.response.body = "no uuid";
     return;
   }
   const player_info = (await db.selectFromPlayer({
@@ -60,6 +57,7 @@ export const post_create = async (
     Record<string, any>
   >,
 ) => {
+  // TODO do this in middleware
   ctx.response.headers.set("Access-Control-Allow-Origin", "*");
   ctx.response.headers.set("Access-Control-Allow-Methods", "POST");
   
@@ -91,8 +89,8 @@ export const post_create = async (
     }
   }
 
-  console.log(JSON.stringify(fields));
-    const name = fields["name"];
+  const name = fields["name"];
+
   if (!name) {
     ctx.response.status = 400;
     ctx.response.body = "no name";
@@ -105,8 +103,6 @@ export const post_create = async (
     post_bid_timeout: toMilliseconds(parseInt(fields["post_bid_timeout"] || "") || DEFAULT_CONFIG.post_bid_timeout),
     demo_timeout: toMilliseconds(parseInt(fields["demo_timeout"] || "") || DEFAULT_CONFIG.demo_timeout)
   };
-
-  console.log(`game insert: ${JSON.stringify(game_cfg)}`);
 
   try {
     // make game row first (player row needs a matching game_id)
@@ -126,8 +122,9 @@ export const post_create = async (
     
   } catch (error) {
     console.log(error);
+    console.log(`error from data: ${JSON.stringify(fields)}`);
     ctx.response.status = 400;
-    ctx.response.body = error;
+    ctx.response.body = "database error. check config fields";
   }
 };
 
@@ -139,9 +136,40 @@ export const post_join = async (
     Record<string, any>
   >,
 ) => {
-  const params: URLSearchParams = await ctx.request.body().value,
-    name = params.get("name"),
-    game_id_encoded = params.get("game_code");
+  ctx.response.headers.set("Access-Control-Allow-Origin", "*");
+  ctx.response.headers.set("Access-Control-Allow-Methods", "POST");
+
+  const body = ctx.request.body();
+  let fields: Record<string, string> = {};
+  switch (body.type) {
+    case ("form"): {
+      for (const [k, v] of (await body.value).entries()) {
+        fields[k] = v;
+      }
+      break;
+    }
+    case ("form-data"): {
+      fields = (await (await body.value.read())).fields;
+      break;
+    }
+    case ("json"): {
+      fields = await body.value;
+      break;
+    }
+    case ("text"): {
+      fields = JSON.parse(await body.value);
+      break;
+    }
+    default: {
+      ctx.response.status = 400;
+      ctx.response.body = "not supported"
+      return;
+    }
+  }
+
+  const name = fields["name"],
+    game_id_encoded = fields["game_code"];
+
   if (
     !name ||
     !game_id_encoded
@@ -158,12 +186,12 @@ export const post_join = async (
       is_host: false,
     }))[0].uuid;
 
-    // TODO no cookies
     ctx.response.status = 201;
     ctx.response.body = uuid;
   } catch (error) {
     console.log(error);
+    console.log(`error from data: ${JSON.stringify(fields)}`);
     ctx.response.status = 400;
-    ctx.response.body = error;
+    ctx.response.body = "database error. check game code";
   }
 };
