@@ -19,6 +19,7 @@ import { Player } from "./player.ts";
 import Board from "./board.ts";
 import { shuffleArray, toSeconds, wsSend } from "../lib/helpers.ts";
 import * as db from "../lib/db.ts";
+import { CHAR_TAB } from "https://deno.land/std@0.188.0/path/_constants.ts";
 
 export const active_games = new Map<number, Game>();
 
@@ -132,6 +133,7 @@ export class Game {
     this.#sendToAllPlayers({
       category: "demonstrator",
       name: this.players.get(this.#state.bid.uuid)!.name,
+      moves: this.#state.bid.moves,
       log: `${
         this.players.get(this.#state.bid.uuid)!.name
       } demonstrating ${this.#state.bid.moves} moves`,
@@ -179,6 +181,16 @@ export class Game {
 
   gameEvent(from_uuid: string, message: GenericMessageToAPI) {
     switch (message.category) {
+      case "chat": {
+        if (message.msg.length > 0 && message.msg.length < 50 && this.players.has(from_uuid)) {
+          this.#sendToAllPlayers({
+            category: "chat",
+            name: this.players.get(from_uuid)?.name || "unknown",
+            msg: message.msg
+          });
+        }
+        break;
+      }
       case "start": {
         console.log("start received");
         if (this.#state.phase !== "join" || from_uuid !== this.host_uuid) {
@@ -196,7 +208,7 @@ export class Game {
         console.log(`not bid phase: ${this.#state.phase !== "bid"} not has uuid: ${!this.players.has(from_uuid)} moves invalid: ${!message.moves || message.moves < 2}`);
         if (
           this.#state.phase !== "bid" || !this.players.has(from_uuid) ||
-          !message.moves || message.moves < 2 ||
+          !message.moves || message.moves < 2 || isNaN(message.moves) ||
           this.bids.some((b) => from_uuid === b.uuid && message.moves === b.moves)
         ) {
           return;
