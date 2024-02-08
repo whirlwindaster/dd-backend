@@ -71,19 +71,12 @@ export class Game {
 
   // TODO: implement players as set
   addPlayer(player_info: PlayerInfo, ws: WebSocket) {
-    for (const [_, v] of this.players) {
-      wsSend(ws, {
-        category: "player_update",
-        name: v.name,
-        add: true
-      });
-    }
-    this.players.set(player_info.uuid, new Player(player_info, ws));
     this.#sendToAllPlayers({
       category: "player_update",
       name: player_info.name,
       add: true,
     });
+    this.players.set(player_info.uuid, new Player(player_info, ws));
   }
 
   deletePlayer(uuid: string) {
@@ -91,7 +84,6 @@ export class Game {
   }
 
   #sendToAllPlayers(message: GenericMessageToPlayer) {
-    console.log(`sending message ${JSON.stringify(message)}`);
     this.players.forEach((p) => p.send(message));
   }
 
