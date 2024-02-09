@@ -1,8 +1,7 @@
 import { BoardSetup, Coordinate, Goal, Tile } from "../lib/types.ts";
 
 const b1 = () => {
-
-  let {rightWallCoords, bottomWallCoords, tiles} = dflt();
+  let { rightWallCoords, bottomWallCoords, tiles } = dflt();
   rightWallCoords = rightWallCoords.concat([
     { x: 3, y: 0 },
     { x: 10, y: 0 },
@@ -82,7 +81,11 @@ const b1 = () => {
   return { tiles, goals, rightWallCoords, bottomWallCoords };
 };
 
-function dflt(): { rightWallCoords: Coordinate[]; bottomWallCoords: Coordinate[]; tiles: Tile[][]; } {
+function dflt(): {
+  rightWallCoords: Coordinate[];
+  bottomWallCoords: Coordinate[];
+  tiles: Tile[][];
+} {
   const size = 16;
   const tiles: Tile[][] = [];
 
@@ -90,15 +93,15 @@ function dflt(): { rightWallCoords: Coordinate[]; bottomWallCoords: Coordinate[]
     { x: 6, y: 7 },
     { x: 6, y: 8 },
     { x: 8, y: 7 },
-    { x: 8, y: 8 }
-  ]
+    { x: 8, y: 8 },
+  ];
 
   const bottomWallCoords: Coordinate[] = [
     { x: 7, y: 6 },
     { x: 7, y: 8 },
     { x: 8, y: 6 },
-    { x: 8, y: 8 }
-  ]
+    { x: 8, y: 8 },
+  ];
 
   for (let x = 0; x < size; x++) {
     const newRow: Tile[] = [];

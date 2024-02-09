@@ -21,7 +21,7 @@ app.use(router.routes());
 app.use(router.allowedMethods());
 
 app.addEventListener("listen", () => {
-  console.log(`Listening on localhost:${Deno.env.get("PORT")}`);
+  console.log(`Listening on dd-api.whirlwinda.st}`);
 });
 
-await app.listen({ port: parseInt(Deno.env.get("PORT")!) });
+await app.listen({ port: 80 });

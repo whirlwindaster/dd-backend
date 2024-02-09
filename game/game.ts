@@ -138,14 +138,18 @@ export class Game {
       } demonstrating ${this.#state.bid.moves} moves`,
     });
     this.m_setTimeout(() => {
-      if (this.players.has(this.#state.bid.uuid)) this.players.get(this.#state.bid.uuid)!.score--;
-        this.#sendToAllPlayers({
-          category: "score",
-          name: this.players.get(this.#state.bid.uuid)?.name || "unknown",
-          points: -1,
-          log: `${this.players.get(this.#state.bid.uuid)?.name} failed the demonstration`,
-        });
-      this.demoPhase.bind(this)()
+      if (this.players.has(this.#state.bid.uuid)) {
+        this.players.get(this.#state.bid.uuid)!.score--;
+      }
+      this.#sendToAllPlayers({
+        category: "score",
+        name: this.players.get(this.#state.bid.uuid)?.name || "unknown",
+        points: -1,
+        log: `${
+          this.players.get(this.#state.bid.uuid)?.name
+        } failed the demonstration`,
+      });
+      this.demoPhase.bind(this)();
     }, this.config.demo_timeout);
   }
   endGame() {
@@ -169,7 +173,7 @@ export class Game {
         {
           this.#sendToAllPlayers({
             category: "log",
-            log: `${winners.slice(0, -1).map(w => w.name).join(", ")} and ${
+            log: `${winners.slice(0, -1).map((w) => w.name).join(", ")} and ${
               winners[winners.length - 1].name
             } tie for first with ${winners[0].score} point(s)!`,
           });
@@ -181,21 +185,22 @@ export class Game {
   gameEvent(from_uuid: string, message: GenericMessageToAPI) {
     switch (message.category) {
       case "chat": {
-        if (message.msg.length > 0 && message.msg.length < 50 && this.players.has(from_uuid)) {
+        if (
+          message.msg.length > 0 && message.msg.length < 50 &&
+          this.players.has(from_uuid)
+        ) {
           this.#sendToAllPlayers({
             category: "chat",
             name: this.players.get(from_uuid)?.name || "unknown",
-            msg: message.msg
+            msg: message.msg,
           });
         }
         break;
       }
       case "start": {
-        console.log("start received");
         if (this.#state.phase !== "join" || from_uuid !== this.host_uuid) {
           return;
         }
-        console.log("start accepted");
         this.#sendToAllPlayers({
           category: "start",
         });
@@ -203,12 +208,12 @@ export class Game {
         break;
       }
       case "bid": {
-        console.log("bid received");
-        console.log(`not bid phase: ${this.#state.phase !== "bid"} not has uuid: ${!this.players.has(from_uuid)} moves invalid: ${!message.moves || message.moves < 2}`);
         if (
           this.#state.phase !== "bid" || !this.players.has(from_uuid) ||
           !message.moves || message.moves < 2 || isNaN(message.moves) ||
-          this.bids.some((b) => from_uuid === b.uuid && message.moves === b.moves)
+          this.bids.some((b) =>
+            from_uuid === b.uuid && message.moves === b.moves
+          )
         ) {
           return;
         }
@@ -252,18 +257,24 @@ export class Game {
         if (this.#state.bid.moves < 1) {
           clearTimeout(this.#state.timeout_id);
           if (!this.board.isSolved(this.#state.goal)) {
-            if (this.players.has(from_uuid)) this.players.get(this.#state.bid.uuid)!.score--;
+            if (this.players.has(from_uuid)) {
+              this.players.get(this.#state.bid.uuid)!.score--;
+            }
             this.#sendToAllPlayers({
               category: "score",
               name: this.players.get(from_uuid)?.name || "unknown",
               points: -1,
-              log: `${this.players.get(from_uuid)?.name} failed the demonstration`,
+              log: `${
+                this.players.get(from_uuid)?.name
+              } failed the demonstration`,
             });
             this.demoPhase();
             return;
           }
-          
-          if (this.players.has(from_uuid)) this.players.get(this.#state.bid.uuid)!.score++;
+
+          if (this.players.has(from_uuid)) {
+            this.players.get(this.#state.bid.uuid)!.score++;
+          }
           this.#sendToAllPlayers({
             category: "score",
             name: this.players.get(from_uuid)?.name || "unknown",

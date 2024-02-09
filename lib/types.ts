@@ -28,7 +28,7 @@ export interface CheckIn extends BaseMessageToPlayer {
   name: string;
   game_code: string;
   is_host: boolean;
-  game_config: GameConfig
+  game_config: GameConfig;
   players: string[];
   right_walls: Coordinate[];
   bottom_walls: Coordinate[];
