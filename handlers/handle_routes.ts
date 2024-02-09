@@ -8,7 +8,7 @@ import { decode } from "../lib/id_cipher.ts";
 
 export const get_ws = async (
   ctx: RouterContext<
-    "/ws",
+    "/er/ws",
     Record<string | number, string | undefined>,
     // deno-lint-ignore no-explicit-any
     Record<string, any>
@@ -51,7 +51,7 @@ export const get_ws = async (
 
 export const post_create = async (
   ctx: RouterContext<
-    "/create",
+    "/er/create",
     Record<string | number, string | undefined>,
     // deno-lint-ignore no-explicit-any
     Record<string, any>
@@ -130,7 +130,7 @@ export const post_create = async (
 
 export const post_join = async (
   ctx: RouterContext<
-    "/join",
+    "/er/join",
     Record<string | number, string | undefined>,
     // deno-lint-ignore no-explicit-any
     Record<string, any>
