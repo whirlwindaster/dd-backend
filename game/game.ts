@@ -19,7 +19,6 @@ import { Player } from "./player.ts";
 import Board from "./board.ts";
 import { shuffleArray, toSeconds, wsSend } from "../lib/helpers.ts";
 import * as db from "../lib/db.ts";
-import { CHAR_TAB } from "https://deno.land/std@0.188.0/path/_constants.ts";
 
 export const active_games = new Map<number, Game>();
 
