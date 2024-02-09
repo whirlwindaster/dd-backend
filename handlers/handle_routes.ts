@@ -60,7 +60,7 @@ export const post_create = async (
   // TODO do this in middleware
   ctx.response.headers.set("Access-Control-Allow-Origin", "*");
   ctx.response.headers.set("Access-Control-Allow-Methods", "POST");
-  
+
   const body = ctx.request.body();
   let fields: Record<string, string> = {};
   switch (body.type) {
@@ -84,7 +84,7 @@ export const post_create = async (
     }
     default: {
       ctx.response.status = 400;
-      ctx.response.body = "not supported"
+      ctx.response.body = "not supported";
       return;
     }
   }
@@ -97,11 +97,21 @@ export const post_create = async (
     return;
   }
   const game_cfg: GameInsert = {
-    num_rounds: parseInt(fields["num_rounds"] || "") || DEFAULT_CONFIG.num_rounds,
-    board_setup_num: parseInt(fields["board_setup_num"] || "") || DEFAULT_CONFIG.board_setup_num,
-    pre_bid_timeout: toMilliseconds(parseInt(fields["pre_bid_timeout"] || "") || DEFAULT_CONFIG.pre_bid_timeout),
-    post_bid_timeout: toMilliseconds(parseInt(fields["post_bid_timeout"] || "") || DEFAULT_CONFIG.post_bid_timeout),
-    demo_timeout: toMilliseconds(parseInt(fields["demo_timeout"] || "") || DEFAULT_CONFIG.demo_timeout)
+    num_rounds: parseInt(fields["num_rounds"] || "") ||
+      DEFAULT_CONFIG.num_rounds,
+    board_setup_num: parseInt(fields["board_setup_num"] || "") ||
+      DEFAULT_CONFIG.board_setup_num,
+    pre_bid_timeout: toMilliseconds(
+      parseInt(fields["pre_bid_timeout"] || "") ||
+        DEFAULT_CONFIG.pre_bid_timeout,
+    ),
+    post_bid_timeout: toMilliseconds(
+      parseInt(fields["post_bid_timeout"] || "") ||
+        DEFAULT_CONFIG.post_bid_timeout,
+    ),
+    demo_timeout: toMilliseconds(
+      parseInt(fields["demo_timeout"] || "") || DEFAULT_CONFIG.demo_timeout,
+    ),
   };
 
   try {
@@ -119,10 +129,8 @@ export const post_create = async (
     );
     ctx.response.status = 201;
     ctx.response.body = player_info.uuid;
-    
   } catch (error) {
     console.log(error);
-    console.log(`error from data: ${JSON.stringify(fields)}`);
     ctx.response.status = 400;
     ctx.response.body = "database error. check config fields";
   }
@@ -162,7 +170,7 @@ export const post_join = async (
     }
     default: {
       ctx.response.status = 400;
-      ctx.response.body = "not supported"
+      ctx.response.body = "not supported";
       return;
     }
   }
@@ -175,7 +183,9 @@ export const post_join = async (
     !game_id_encoded
   ) {
     ctx.response.status = 400;
-    ctx.response.body = `${name? "" : "no name "}${game_id_encoded? "" : "no game code"}`
+    ctx.response.body = `${name ? "" : "no name "}${
+      game_id_encoded ? "" : "no game code"
+    }`;
     return;
   }
 
@@ -190,7 +200,6 @@ export const post_join = async (
     ctx.response.body = uuid;
   } catch (error) {
     console.log(error);
-    console.log(`error from data: ${JSON.stringify(fields)}`);
     ctx.response.status = 400;
     ctx.response.body = "database error. check game code";
   }

@@ -15,9 +15,7 @@ export function wsSend(
   if (ws.readyState !== 1) {
     return;
   }
-  
-  console.log(`sending message ${JSON.stringify(message)}`);
-  
+
   ws.send(JSON.stringify(message));
 }
 

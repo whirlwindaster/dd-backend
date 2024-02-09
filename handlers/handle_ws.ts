@@ -21,7 +21,7 @@ export const onOpen = (player_info: PlayerInfo, game: Game, ws: WebSocket) => {
     for (const [_, v] of game.players) {
       players.push(v.name);
     }
-    
+
     wsSend(ws, {
       name: player_info.name,
       category: "check_in",
@@ -29,7 +29,7 @@ export const onOpen = (player_info: PlayerInfo, game: Game, ws: WebSocket) => {
         num_rounds: game.config.num_rounds,
         pre_bid_timeout: game.config.pre_bid_timeout,
         post_bid_timeout: game.config.post_bid_timeout,
-        demo_timeout: game.config.demo_timeout
+        demo_timeout: game.config.demo_timeout,
       },
       game_code: encode(player_info.game_id),
       is_host: player_info.is_host,
@@ -44,9 +44,7 @@ export const onOpen = (player_info: PlayerInfo, game: Game, ws: WebSocket) => {
 export const onMessage = (uuid: string, game: Game) => {
   return (m: MessageEvent) => {
     const message = parseMessage(m);
-    console.log(`message received: ${JSON.stringify(message)}`);
     // schema is validated but NOT values
-    console.log(`isSchema: ${isSchema(message)} isValidSchema: ${isValidSchema(message)}}`)
     if (
       //!isSchema(message) || !isValidSchema(message) ||
       MessageSchemas.some((schema) => {
@@ -55,7 +53,6 @@ export const onMessage = (uuid: string, game: Game) => {
     ) {
       return;
     }
-    console.log("message accepted");
     game.gameEvent(uuid, message as GenericMessageToAPI);
   };
 };
