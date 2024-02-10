@@ -13,7 +13,7 @@ import {
 } from "../lib/types.ts";
 import { Player } from "./player.ts";
 import Board from "./board.ts";
-import { shuffleArray, toSeconds, wsSend } from "../lib/helpers.ts";
+import { shuffleArray, toSeconds } from "../lib/helpers.ts";
 
 export const active_games = new Map<number, Game>();
 
@@ -181,7 +181,7 @@ export class Game {
     switch (message.category) {
       case "chat": {
         if (
-          message.msg.length > 0 && message.msg.length < 50 &&
+          message.msg.length > 0 && message.msg.length < 201 &&
           this.players.has(from_uuid)
         ) {
           this.#sendToAllPlayers({
