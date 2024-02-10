@@ -8,8 +8,6 @@ import {
   PlayerInfo,
 } from "../lib/types.ts";
 import {
-  isSchema,
-  isValidSchema,
   validate,
 } from "https://deno.land/x/jtd@v0.1.0/mod.ts";
 

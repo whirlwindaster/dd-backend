@@ -2,23 +2,18 @@ import {
   Bid,
   Coordinate,
   Direction,
-  GameInfo,
   GameInsert,
   GameState,
   GenericMessageToAPI,
   GenericMessageToPlayer,
   Goal,
   PlayerInfo,
-  PlayerUpdate,
   RobotColor,
-  RobotPositions,
-  Score,
   Stack,
 } from "../lib/types.ts";
 import { Player } from "./player.ts";
 import Board from "./board.ts";
 import { shuffleArray, toSeconds, wsSend } from "../lib/helpers.ts";
-import * as db from "../lib/db.ts";
 
 export const active_games = new Map<number, Game>();
 
