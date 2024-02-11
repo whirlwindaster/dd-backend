@@ -5,6 +5,7 @@ import { onClose, onMessage, onOpen } from "./handle_ws.ts";
 import { toMilliseconds } from "../lib/helpers.ts";
 import { DEFAULT_CONFIG, GameInsert } from "../lib/types.ts";
 import { decode } from "../lib/id_cipher.ts";
+import { logger } from "../index.ts";
 
 export const get_ws = async (
   ctx: RouterContext<
@@ -27,16 +28,20 @@ export const get_ws = async (
     ctx.response.body = "no uuid";
     return;
   }
-  const player_info = (await db.selectFromPlayer({
+  const player_info = await db.selectFromPlayer({
     column: "uuid",
     equals: uuid,
-  }))[0];
-  if (!player_info || !(player_info.game_id)) {
+  });
+  if (player_info.length > 1) {
+    ctx.response.status = 403;
+    ctx.response.body = "player already in game";
+  }
+  if (!player_info[0] || !(player_info[0].game_id)) {
     ctx.response.status = 403;
     ctx.response.body = "player not found";
     return;
   }
-  const game = active_games.get(player_info.game_id);
+  const game = active_games.get(player_info[0].game_id);
   if (!game) {
     ctx.response.status = 500;
     ctx.response.body = "internal server error";
@@ -44,9 +49,9 @@ export const get_ws = async (
   }
 
   const ws = ctx.upgrade();
-  ws.onopen = onOpen(player_info, game, ws);
-  ws.onmessage = onMessage(player_info.uuid, game);
-  ws.onclose = onClose(player_info, game);
+  ws.onopen = onOpen(player_info[0], game, ws);
+  ws.onmessage = onMessage(player_info[0].uuid, game);
+  ws.onclose = onClose(player_info[0], game);
 };
 
 export const post_create = async (
@@ -71,7 +76,7 @@ export const post_create = async (
       break;
     }
     case ("form-data"): {
-      fields = (await (await body.value.read())).fields;
+      fields = (await body.value.read()).fields;
       break;
     }
     case ("json"): {
@@ -157,7 +162,7 @@ export const post_join = async (
       break;
     }
     case ("form-data"): {
-      fields = (await (await body.value.read())).fields;
+      fields = (await body.value.read()).fields;
       break;
     }
     case ("json"): {
@@ -169,11 +174,13 @@ export const post_join = async (
       break;
     }
     default: {
+      logger.warn(`rejecting body type ${body.type}`);
       ctx.response.status = 400;
       ctx.response.body = "not supported";
       return;
     }
   }
+  logger.debug(`got fields ${JSON.stringify(fields)} from body type ${body.type}`);
 
   const name = fields["name"],
     game_id_encoded = fields["game_code"];
