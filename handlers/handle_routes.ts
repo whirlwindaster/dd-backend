@@ -20,7 +20,7 @@ export const get_ws = async (
     return;
   }
 
-  const params: URLSearchParams = await ctx.request.url.searchParams,
+  const params: URLSearchParams = ctx.request.url.searchParams,
     uuid = params.get("uuid");
   if (!uuid) {
     ctx.response.status = 400;
@@ -62,8 +62,8 @@ export const post_create = async (
   >,
 ) => {
   // TODO do this in middleware
-  ctx.response.headers.set("Access-Control-Allow-Origin", "*");
-  ctx.response.headers.set("Access-Control-Allow-Methods", "POST");
+  //ctx.response.headers.set("Access-Control-Allow-Origin", "*");
+  //ctx.response.headers.set("Access-Control-Allow-Methods", "POST");
 
   const body = ctx.request.body;
   let fields: Record<string, string> = {};
@@ -146,8 +146,8 @@ export const post_join = async (
     Record<string, any>
   >,
 ) => {
-  ctx.response.headers.set("Access-Control-Allow-Origin", "*");
-  ctx.response.headers.set("Access-Control-Allow-Methods", "POST");
+  //ctx.response.headers.set("Access-Control-Allow-Origin", "*");
+  //ctx.response.headers.set("Access-Control-Allow-Methods", "POST");
 
   const body = ctx.request.body;
   let fields: Record<string, string> = {};
