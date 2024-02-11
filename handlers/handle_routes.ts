@@ -153,11 +153,11 @@ export const post_join = async (
   let fields: Record<string, string> = {};
   switch (body.type()) {
     case ("form"): {
-      (await body.form()).forEach((k, v) => fields[k] = v);
+      (await body.form()).forEach((v, k) => fields[k] = v);
       break;
     }
     case ("form-data"): {
-      (await body.formData()).forEach((k: FormDataEntryValue, v) => { if (!(k instanceof File)) fields[k] = v });
+      (await body.formData()).forEach((v, k) => { if (!(v instanceof File)) fields[k] = v });
       break;
     }
     case ("json"): {
