@@ -1,4 +1,10 @@
+// deno-lint-ignore-file no-explicit-any
+import { RouterContext } from "oak/router.ts";
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
+
+export type WSRouteContext = RouterContext<"/er/ws", Record<string | number, string | undefined>, Record<string, any>>;
+export type CreateRouteContext = RouterContext<"/er/create", Record<string | number, string | undefined>, Record<string, any>>;
+export type JoinRouteContext = RouterContext<"/er/join", Record<string | number, string | undefined>, Record<string, any>>;
 
 export type GamePhase = "join" | "bid" | "demonstrate" | "end";
 export type RobotColor = keyof RobotPositions; // "r" | "y" | "g" | "u" | "b"

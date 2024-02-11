@@ -4,12 +4,11 @@ import { oakCors } from "cors/mod.ts";
 import * as log from "$std/log/mod.ts"
 import "$std/dotenv/load.ts";
 
-export const ws_uuid_map = new Map<WebSocket, string>();
 
 log.setup({
   handlers: {
     console: new log.ConsoleHandler("DEBUG"),
-
+    
     file: new log.RotatingFileHandler("INFO", {
       filename: './logs/log.txt',
       maxBytes: 1000000,
@@ -21,12 +20,21 @@ log.setup({
   loggers: {
     default: {
       level: "DEBUG",
+      handlers: ["console"]
+    },
+    "dev": {
+      level: "DEBUG",
+      handlers: ["console", "file"]
+    },
+    "prod": {
+      level: "INFO",
       handlers: ["console", "file"]
     }
   }
 });
+export const logger = log.getLogger(Deno.env.get("ENVIRONMENT"));
 
-export const logger = log.getLogger();
+export const ws_uuid_map = new Map<WebSocket, string>();
 
 const router = new Router();
 router
@@ -46,7 +54,7 @@ app.use(router.routes());
 app.use(router.allowedMethods());
 
 app.addEventListener("listen", () => {
-  console.log(`Listening on https://dd-api.whirlwinda.st}`);
+  logger.info(`Listening on https://dd-api.whirlwinda.st}`);
 });
 
-await app.listen({ port: 443, secure: true, cert: Deno.readTextFileSync('./cert'), key: Deno.readTextFileSync('./key') });
+await app.listen({ port: 443, secure: true, cert: Deno.readTextFileSync(Deno.env.get("CERT_PATH") || ""), key: Deno.readTextFileSync(Deno.env.get("KEY_PATH") || "") });

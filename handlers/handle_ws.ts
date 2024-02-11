@@ -7,9 +7,21 @@ import {
   MessageToAPISchemas,
   PlayerInfo,
 } from "../lib/types.ts";
+import { logger } from "../index.ts";
+
+async function deleteGame(game: Game) {
+  logger.info(`deleting game ${game.id} from database`);
+  try {
+    await db.deleteFromGame(game.id);
+  } catch (err) {
+    logger.warn(err);
+  }
+  game.delete()
+}
 
 export const onOpen = (player_info: PlayerInfo, game: Game, ws: WebSocket) => {
   return () => {
+    logger.info(`player ${player_info.name} joined game ${game.id}`);
     game.addPlayer(player_info, ws);
 
     const players: string[] = [];
@@ -48,21 +60,18 @@ export const onMessage = (uuid: string, game: Game) => {
 
 export const onClose = (player_info: PlayerInfo, game: Game) => {
   return async () => {
+    logger.info(`player ${player_info.name} left game ${game.id}`);
     try {
       await db.deleteFromPlayer(player_info.uuid);
     } catch (err) {
-      console.log(err);
+      logger.warn(err);
     }
     game.gameEvent(player_info.uuid, {
       category: "leave",
     });
 
     if (game.players.size === 0) {
-      try {
-        await db.deleteFromGame(player_info.game_id);
-      } catch (err) {
-        console.log(err);
-      }
+      await deleteGame(game);
     }
   };
 };
