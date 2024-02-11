@@ -13,7 +13,8 @@ import {
 } from "../lib/types.ts";
 import { Player } from "./player.ts";
 import Board from "./board.ts";
-import { shuffleArray, toSeconds } from "../lib/helpers.ts";
+import { shuffleArray, toMilliseconds, toSeconds } from "../lib/helpers.ts";
+import * as db from "../lib/db.ts";
 
 export const active_games = new Map<number, Game>();
 
@@ -39,7 +40,14 @@ export class Game {
   #state: GameState = {
     phase: "join",
     round: 0,
-    timeout_id: 0,
+    timeout_id: setTimeout(async () => {
+      try {
+        await db.deleteFromGame(this.id)
+      } catch (err) {
+        console.log(err);
+      }
+      active_games.delete(this.id);
+    }, toMilliseconds(60 * 30)),
     goal: {
       color: "m",
       shape: "vortex",
@@ -64,7 +72,6 @@ export class Game {
     // prefer to access players by uuid rather than name, id, etc
   }
 
-  // TODO: implement players as set
   addPlayer(player_info: PlayerInfo, ws: WebSocket) {
     this.#sendToAllPlayers({
       category: "player_update",
@@ -196,6 +203,7 @@ export class Game {
         if (this.#state.phase !== "join" || from_uuid !== this.host_uuid) {
           return;
         }
+        clearTimeout(this.#state.timeout_id);
         this.#sendToAllPlayers({
           category: "start",
         });
@@ -205,7 +213,6 @@ export class Game {
       case "bid": {
         if (
           this.#state.phase !== "bid" || !this.players.has(from_uuid) ||
-          !message.moves || message.moves < 2 || isNaN(message.moves) ||
           this.bids.some((b) =>
             from_uuid === b.uuid && message.moves === b.moves
           )
@@ -239,10 +246,7 @@ export class Game {
       case "move": {
         if (
           this.#state.phase !== "demonstrate" ||
-          from_uuid !== this.#state.bid.uuid || !message.robot ||
-          !message.direction ||
-          !(message.robot in this.board.current_positions) ||
-          !["up", "down", "left", "right"].includes(message.direction)
+          from_uuid !== this.#state.bid.uuid
         ) {
           return;
         }
@@ -288,6 +292,7 @@ export class Game {
         });
         this.players.delete(from_uuid);
         if (!this.players.size) {
+          clearTimeout(this.#state.timeout_id);
           active_games.delete(this.id);
         }
         break;

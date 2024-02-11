@@ -1,4 +1,4 @@
-import { Schema } from "https://deno.land/x/jtd@v0.1.0/schema.ts";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 export type GamePhase = "join" | "bid" | "demonstrate" | "end";
 export type RobotColor = keyof RobotPositions; // "r" | "y" | "g" | "u" | "b"
@@ -112,28 +112,27 @@ export type GenericMessageToAPI =
   | ChatRequest
   | Leave;
 
-const StartRequestSchema: Schema = {
-    properties: {
-      category: { type: "string" },
-    },
-  },
-  BidRequestSchema = {
-    properties: {
-      category: { type: "string" },
-      moves: { type: "uint32" },
-    },
-  } as Schema,
-  MoveRequestSchema = {
-    properties: {
-      category: { type: "string" },
-      robot: { type: "string" },
-      direction: { type: "string" },
-    },
-  } as Schema;
-export const MessageSchemas = [
+const StartRequestSchema = z.object({
+  category: z.string().regex(/^start$/)
+});
+const BidRequestSchema = z.object({
+  category: z.string().regex(/^bid$/),
+  moves: z.number().gt(1)
+});
+const MoveRequestSchema = z.object({
+  category: z.string().regex(/^move$/),
+  robot: z.string().regex(/^r|y|g|u|b$/),
+  direction: z.string().regex(/^up|down|left|right$/)
+});
+const ChatRequestSchema = z.object({
+  category: z.string().regex(/^chat$/),
+  msg: z.string().max(200)
+});
+export const MessageToAPISchemas = [
   StartRequestSchema,
   BidRequestSchema,
   MoveRequestSchema,
+  ChatRequestSchema
 ];
 
 export interface GameState {

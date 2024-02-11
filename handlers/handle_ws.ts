@@ -4,12 +4,9 @@ import { parseMessage, wsSend } from "../lib/helpers.ts";
 import { encode } from "../lib/id_cipher.ts";
 import {
   GenericMessageToAPI,
-  MessageSchemas,
+  MessageToAPISchemas,
   PlayerInfo,
 } from "../lib/types.ts";
-import {
-  validate,
-} from "https://deno.land/x/jtd@v0.1.0/mod.ts";
 
 export const onOpen = (player_info: PlayerInfo, game: Game, ws: WebSocket) => {
   return () => {
@@ -42,13 +39,7 @@ export const onOpen = (player_info: PlayerInfo, game: Game, ws: WebSocket) => {
 export const onMessage = (uuid: string, game: Game) => {
   return (m: MessageEvent) => {
     const message = parseMessage(m);
-    // schema is validated but NOT values
-    if (
-      //!isSchema(message) || !isValidSchema(message) ||
-      MessageSchemas.some((schema) => {
-        validate(schema, message, { maxDepth: 3, maxErrors: 1 }).length > 0;
-      })
-    ) {
+    if (!(MessageToAPISchemas.some((schema) => schema.safeParse(message).success))) {
       return;
     }
     game.gameEvent(uuid, message as GenericMessageToAPI);
