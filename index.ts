@@ -45,7 +45,7 @@ app.use(router.allowedMethods());
 app.use((ctx) => {
   ctx.response.headers.set("Access-Control-Allow-Origin", "*");
   ctx.response.headers.set("Access-Control-Allow-Methods", "POST");
-})
+});
 
 app.addEventListener("listen", () => {
   console.log(`Listening on https://dd-api.whirlwinda.st}`);
