@@ -5,7 +5,6 @@ import { onClose, onMessage, onOpen } from "./handle_ws.ts";
 import { toMilliseconds } from "../lib/helpers.ts";
 import { DEFAULT_CONFIG, GameInsert } from "../lib/types.ts";
 import { decode } from "../lib/id_cipher.ts";
-import { logger } from "../index.ts";
 
 export const get_ws = async (
   ctx: RouterContext<
@@ -66,25 +65,23 @@ export const post_create = async (
   ctx.response.headers.set("Access-Control-Allow-Origin", "*");
   ctx.response.headers.set("Access-Control-Allow-Methods", "POST");
 
-  const body = ctx.request.body();
+  const body = ctx.request.body;
   let fields: Record<string, string> = {};
-  switch (body.type) {
+  switch (body.type()) {
     case ("form"): {
-      for (const [k, v] of (await body.value).entries()) {
-        fields[k] = v;
-      }
+      (await body.form()).forEach((k, v) => fields[k] = v);
       break;
     }
     case ("form-data"): {
-      fields = (await body.value.read()).fields;
+      (await body.formData()).forEach((k: FormDataEntryValue, v) => { if (!(k instanceof File)) fields[k] = v });
       break;
     }
     case ("json"): {
-      fields = await body.value;
+      fields = await body.json();
       break;
     }
     case ("text"): {
-      fields = JSON.parse(await body.value);
+      fields = JSON.parse(await body.text());
       break;
     }
     default: {
@@ -152,35 +149,31 @@ export const post_join = async (
   ctx.response.headers.set("Access-Control-Allow-Origin", "*");
   ctx.response.headers.set("Access-Control-Allow-Methods", "POST");
 
-  const body = ctx.request.body();
+  const body = ctx.request.body;
   let fields: Record<string, string> = {};
-  switch (body.type) {
+  switch (body.type()) {
     case ("form"): {
-      for (const [k, v] of (await body.value).entries()) {
-        fields[k] = v;
-      }
+      (await body.form()).forEach((k, v) => fields[k] = v);
       break;
     }
     case ("form-data"): {
-      fields = (await body.value.read()).fields;
+      (await body.formData()).forEach((k: FormDataEntryValue, v) => { if (!(k instanceof File)) fields[k] = v });
       break;
     }
     case ("json"): {
-      fields = await body.value;
+      fields = await body.json();
       break;
     }
     case ("text"): {
-      fields = JSON.parse(await body.value);
+      fields = JSON.parse(await body.text());
       break;
     }
     default: {
-      logger.warn(`rejecting body type ${body.type}`);
       ctx.response.status = 400;
       ctx.response.body = "not supported";
       return;
     }
   }
-  logger.debug(`got fields ${JSON.stringify(fields)} from body type ${body.type}`);
 
   const name = fields["name"],
     game_id_encoded = fields["game_code"];
