@@ -1,4 +1,7 @@
+import { Game } from "../game/game.ts";
+import { logger } from "../index.ts";
 import { GenericMessageToPlayer } from "./types.ts";
+import * as db from "./db.ts"
 
 export function toMilliseconds(seconds: number) {
   return seconds * 1000;
@@ -17,6 +20,16 @@ export function wsSend(
   }
 
   ws.send(JSON.stringify(message));
+}
+
+export async function deleteGame(game: Game) {
+  logger.info(`deleting game ${game.id} from database`);
+  try {
+    await db.deleteFromGame(game.id);
+  } catch (err) {
+    logger.warn(err);
+  }
+  game.delete()
 }
 
 export function parseMessage(msg: MessageEvent) {

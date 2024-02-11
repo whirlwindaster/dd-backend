@@ -218,7 +218,7 @@ export class Game {
           return;
         }
 
-        clearTimeout(this.#state.timeout_id);
+        clearTimeout(this.idle_timeout);
         this.#sendToAllPlayers({
           category: "start",
         });
