@@ -1,7 +1,7 @@
 {
   "imports": {
     "$std/": "https://deno.land/std@0.193.0/",
-    "oak/": "https://deno.land/x/oak@v12.5.0/",
+    "oak/": "https://deno.land/x/oak@v13.1.0/",
     "supabase": "https://esm.sh/@supabase/supabase-js@2"
   },
   "tasks": {
