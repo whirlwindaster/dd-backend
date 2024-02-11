@@ -35,7 +35,6 @@ export async function selectFromPlayer(
     .eq(where.column, where.equals);
 
   if (error) throw new Error(error.message);
-
   return data;
 }
 
@@ -49,10 +48,7 @@ export async function insertIntoGame(
     ])
     .select();
 
-  if (error) {
-    console.log(error.message);
-    throw new Error(error.message);
-  }
+  if (error) throw new Error(error.message);
   return data;
 }
 

@@ -1,19 +1,43 @@
 import * as db from "../lib/db.ts";
-import { RouterContext } from "oak/mod.ts";
 import { active_games, gameFactory } from "../game/game.ts";
 import { onClose, onMessage, onOpen } from "./handle_ws.ts";
 import { toMilliseconds } from "../lib/helpers.ts";
-import { DEFAULT_CONFIG, GameInsert } from "../lib/types.ts";
+import { Body } from "oak/body.ts";
+import { CreateRouteContext, JoinRouteContext, WSRouteContext, DEFAULT_CONFIG, GameInsert } from "../lib/types.ts";
 import { decode } from "../lib/id_cipher.ts";
+import { logger } from "../index.ts"
 
-export const get_ws = async (
-  ctx: RouterContext<
-    "/er/ws",
-    Record<string | number, string | undefined>,
-    // deno-lint-ignore no-explicit-any
-    Record<string, any>
-  >,
-) => {
+async function unpackFields(body: Body): Promise<Record<string, string> | null> {
+  let fields: Record<string, string> = {};
+  const body_type = body.type();
+  logger.debug(`unpacking body type ${body_type}`)
+  switch (body_type) {
+    case ("form"): {
+      (await body.form()).forEach((k, v) => fields[k] = v);
+      break;
+    }
+    case ("form-data"): {
+      (await body.formData()).forEach((k: FormDataEntryValue, v) => { if (!(k instanceof File)) fields[k] = v });
+      break;
+    }
+    case ("json"): {
+      fields = await body.json();
+      break;
+    }
+    case ("text"): {
+      fields = JSON.parse(await body.text());
+      break;
+    }
+    default: {
+      logger.warn(`rejecting body type ${body_type}`);
+      return null;
+    }
+  }
+  logger.debug(`got fields ${JSON.stringify(fields)}`);
+  return fields;
+}
+
+export const get_ws = async (ctx: WSRouteContext) => {
   if (!ctx.isUpgradable) {
     ctx.response.status = 400;
     ctx.response.body = "not upgradable";
@@ -53,51 +77,21 @@ export const get_ws = async (
   ws.onclose = onClose(player_info[0], game);
 };
 
-export const post_create = async (
-  ctx: RouterContext<
-    "/er/create",
-    Record<string | number, string | undefined>,
-    // deno-lint-ignore no-explicit-any
-    Record<string, any>
-  >,
-) => {
-  // TODO do this in middleware
-  //ctx.response.headers.set("Access-Control-Allow-Origin", "*");
-  //ctx.response.headers.set("Access-Control-Allow-Methods", "POST");
-
-  const body = ctx.request.body;
-  let fields: Record<string, string> = {};
-  switch (body.type()) {
-    case ("form"): {
-      (await body.form()).forEach((k, v) => fields[k] = v);
-      break;
-    }
-    case ("form-data"): {
-      (await body.formData()).forEach((k: FormDataEntryValue, v) => { if (!(k instanceof File)) fields[k] = v });
-      break;
-    }
-    case ("json"): {
-      fields = await body.json();
-      break;
-    }
-    case ("text"): {
-      fields = JSON.parse(await body.text());
-      break;
-    }
-    default: {
-      ctx.response.status = 400;
-      ctx.response.body = "not supported";
-      return;
-    }
+export const post_create = async (ctx: CreateRouteContext) => {
+  const fields = await unpackFields(ctx.request.body)
+  if (fields === null) {
+    ctx.response.status = 400;
+    ctx.response.body = "not supported";
+    return;
   }
 
   const name = fields["name"];
-
   if (!name) {
     ctx.response.status = 400;
     ctx.response.body = "no name";
     return;
   }
+
   const game_cfg: GameInsert = {
     num_rounds: parseInt(fields["num_rounds"] || "") ||
       DEFAULT_CONFIG.num_rounds,
@@ -125,54 +119,23 @@ export const post_create = async (
         is_host: true,
       }))[0];
 
-    gameFactory(
-      player_info,
-      game_cfg,
-    );
+    gameFactory(player_info, game_cfg);
+
     ctx.response.status = 201;
     ctx.response.body = player_info.uuid;
-  } catch (error) {
-    console.log(error);
+  } catch (err) {
+    logger.warn(err);
     ctx.response.status = 400;
     ctx.response.body = "database error. check config fields";
   }
 };
 
-export const post_join = async (
-  ctx: RouterContext<
-    "/er/join",
-    Record<string | number, string | undefined>,
-    // deno-lint-ignore no-explicit-any
-    Record<string, any>
-  >,
-) => {
-  //ctx.response.headers.set("Access-Control-Allow-Origin", "*");
-  //ctx.response.headers.set("Access-Control-Allow-Methods", "POST");
-
-  const body = ctx.request.body;
-  let fields: Record<string, string> = {};
-  switch (body.type()) {
-    case ("form"): {
-      (await body.form()).forEach((v, k) => fields[k] = v);
-      break;
-    }
-    case ("form-data"): {
-      (await body.formData()).forEach((v, k) => { if (!(v instanceof File)) fields[k] = v });
-      break;
-    }
-    case ("json"): {
-      fields = await body.json();
-      break;
-    }
-    case ("text"): {
-      fields = JSON.parse(await body.text());
-      break;
-    }
-    default: {
-      ctx.response.status = 400;
-      ctx.response.body = "not supported";
-      return;
-    }
+export const post_join = async (ctx: JoinRouteContext) => {
+  const fields = await unpackFields(ctx.request.body);
+  if (fields === null) {
+    ctx.response.status = 400;
+    ctx.response.body = "not supported";
+    return;
   }
 
   const name = fields["name"],
@@ -198,9 +161,9 @@ export const post_join = async (
 
     ctx.response.status = 201;
     ctx.response.body = uuid;
-  } catch (error) {
-    console.log(error);
+  } catch (err) {
+    logger.warn(err);
     ctx.response.status = 400;
-    ctx.response.body = "database error. check game code";
+    ctx.response.body = "database error. name may be taken";
   }
 };

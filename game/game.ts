@@ -15,6 +15,7 @@ import { Player } from "./player.ts";
 import Board from "./board.ts";
 import { shuffleArray, toMilliseconds, toSeconds } from "../lib/helpers.ts";
 import * as db from "../lib/db.ts";
+import { logger } from "../index.ts";
 
 export const active_games = new Map<number, Game>();
 
@@ -25,6 +26,7 @@ export function gameFactory(
   if (!active_games.has(player_info.game_id)) {
     const game = new Game(player_info, config);
     active_games.set(player_info.game_id, game);
+    logger.info(`created new game ${game.id}`);
   }
   return active_games.get(player_info.game_id)!;
 }
@@ -34,6 +36,7 @@ export class Game {
   host_uuid: string;
   config: GameInsert;
   board: Board;
+  idle_timeout = 0;
   players = new Map<string, Player>();
   bids = new Stack<Bid>();
   goalStack: Stack<Goal>;
@@ -41,10 +44,11 @@ export class Game {
     phase: "join",
     round: 0,
     timeout_id: setTimeout(async () => {
+      logger.warn(`deleting inactive game ${this.id}`);
       try {
         await db.deleteFromGame(this.id)
       } catch (err) {
-        console.log(err);
+        logger.warn(err);
       }
       active_games.delete(this.id);
     }, toMilliseconds(60 * 30)),
@@ -81,6 +85,13 @@ export class Game {
     this.players.set(player_info.uuid, new Player(player_info, ws));
   }
 
+  delete() {
+    logger.info(`deleting game ${this.id}`);
+    this.#closeAllConnetions();
+    clearTimeout(this.#state.timeout_id);
+    active_games.delete(this.id);
+  }
+
   deletePlayer(uuid: string) {
     this.players.delete(uuid);
   }
@@ -90,6 +101,7 @@ export class Game {
   }
 
   #closeAllConnetions() {
+    logger.info(`game ${this.id} closing`)
     this.players.forEach((p) => p.disconnect);
   }
 
@@ -171,38 +183,41 @@ export class Game {
         });
         break;
       }
-      default:
-        {
-          this.#sendToAllPlayers({
-            category: "log",
-            log: `${winners.slice(0, -1).map((w) => w.name).join(", ")} and ${
-              winners[winners.length - 1].name
-            } tie for first with ${winners[0].score} point(s)!`,
-          });
-        }
-        this.#closeAllConnetions();
+      default: {
+        this.#sendToAllPlayers({
+          category: "log",
+          log: `${winners.slice(0, -1).map((w) => w.name).join(", ")} and ${
+            winners[winners.length - 1].name
+          } tie for first with ${winners[0].score} point(s)!`,
+        });
+        break;
+      }
     }
+    this.delete();
   }
 
   gameEvent(from_uuid: string, message: GenericMessageToAPI) {
     switch (message.category) {
       case "chat": {
         if (
-          message.msg.length > 0 && message.msg.length < 201 &&
-          this.players.has(from_uuid)
+          message.msg.length > 200 || !this.players.has(from_uuid)
         ) {
-          this.#sendToAllPlayers({
-            category: "chat",
-            name: this.players.get(from_uuid)?.name || "unknown",
-            msg: message.msg,
-          });
+          logger.info('rejecting chat message');
         }
+        
+        this.#sendToAllPlayers({
+          category: "chat",
+          name: this.players.get(from_uuid)?.name || "unknown",
+          msg: message.msg,
+        });
         break;
       }
       case "start": {
         if (this.#state.phase !== "join" || from_uuid !== this.host_uuid) {
+          logger.warn(`rejecting start message: ${JSON.stringify(message)}`);
           return;
         }
+
         clearTimeout(this.#state.timeout_id);
         this.#sendToAllPlayers({
           category: "start",
@@ -217,6 +232,7 @@ export class Game {
             from_uuid === b.uuid && message.moves === b.moves
           )
         ) {
+          logger.info(`rejecting bid: ${JSON.stringify(message)}`);
           return;
         }
 
@@ -248,6 +264,7 @@ export class Game {
           this.#state.phase !== "demonstrate" ||
           from_uuid !== this.#state.bid.uuid
         ) {
+          logger.warn("rejecting move");
           return;
         }
 
@@ -291,10 +308,6 @@ export class Game {
           add: false,
         });
         this.players.delete(from_uuid);
-        if (!this.players.size) {
-          clearTimeout(this.#state.timeout_id);
-          active_games.delete(this.id);
-        }
         break;
       }
     }
@@ -336,6 +349,8 @@ export class Game {
 
   getWinners(): Player[] {
     const players_arr = [...this.players.values()];
+    if (players_arr.length === 0) return [];
+
     let winners = [players_arr[0]];
 
     for (let i = 1; i < players_arr.length; i++) {
