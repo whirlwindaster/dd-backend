@@ -1,6 +1,6 @@
 import * as db from "../lib/db.ts";
 import { Game } from "../game/game.ts";
-import { parseMessage, wsSend } from "../lib/helpers.ts";
+import { deleteGame, parseMessage, wsSend } from "../lib/helpers.ts";
 import { encode } from "../lib/id_cipher.ts";
 import {
   GenericMessageToAPI,
@@ -8,16 +8,6 @@ import {
   PlayerInfo,
 } from "../lib/types.ts";
 import { logger } from "../index.ts";
-
-async function deleteGame(game: Game) {
-  logger.info(`deleting game ${game.id} from database`);
-  try {
-    await db.deleteFromGame(game.id);
-  } catch (err) {
-    logger.warn(err);
-  }
-  game.delete()
-}
 
 export const onOpen = (player_info: PlayerInfo, game: Game, ws: WebSocket) => {
   return () => {
