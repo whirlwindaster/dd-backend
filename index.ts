@@ -1,6 +1,7 @@
 import { get_ws, post_create, post_join } from "./handlers/handle_routes.ts";
 import { Application, Router } from "oak/mod.ts";
-import * as log from "https://deno.land/std@0.215.0/log/mod.ts"
+import { oakCors } from "cors/mod.ts";
+import * as log from "$std/log/mod.ts"
 import "$std/dotenv/load.ts";
 
 export const ws_uuid_map = new Map<WebSocket, string>();
@@ -40,12 +41,9 @@ router
   .post("/er/join", post_join);
 
 const app = new Application();
+app.use(oakCors());
 app.use(router.routes());
 app.use(router.allowedMethods());
-app.use((ctx) => {
-  ctx.response.headers.set("Access-Control-Allow-Origin", "*");
-  ctx.response.headers.set("Access-Control-Allow-Methods", "POST");
-});
 
 app.addEventListener("listen", () => {
   console.log(`Listening on https://dd-api.whirlwinda.st}`);
