@@ -47,4 +47,4 @@ app.addEventListener("listen", () => {
   console.log(`Listening on https://dd-api.whirlwinda.st}`);
 });
 
-await app.listen({ port: 443, secure: true, cert: Deno.readTextFileSync('./cert'), key: Deno.readTextFileSync('.key') });
+await app.listen({ port: 443, secure: true, cert: Deno.readTextFileSync('./cert'), key: Deno.readTextFileSync('./key') });
