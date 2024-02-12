@@ -9,11 +9,6 @@ export const onOpen = (player_info: PlayerInfo, game: Game, ws: WebSocket) => {
         logger.info(`player ${player_info.name} joined game ${game.id}`);
         game.addPlayer(player_info, ws);
 
-        const players: string[] = [];
-        for (const [_, v] of game.players) {
-            players.push(v.name);
-        }
-
         wsSend(ws, {
             name: player_info.name,
             category: 'check_in',
@@ -25,7 +20,7 @@ export const onOpen = (player_info: PlayerInfo, game: Game, ws: WebSocket) => {
             },
             game_code: encode(player_info.game_id),
             is_host: player_info.is_host,
-            players: players,
+            players: Array.from(game.players.values(), (player) => [player.name, player.score]),
             right_walls: game.board.right_walls,
             bottom_walls: game.board.bottom_walls,
             goals: game.board.goals,

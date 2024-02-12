@@ -281,25 +281,69 @@ export class Game {
                 });
                 break;
             }
+            case 'config': {
+                if (this.#state.phase !== 'join' || from_uuid !== this.host_uuid) {
+                    logger.warn(`rejecting config message: ${JSON.stringify(message)}`);
+                    return;
+                }
+
+                let new_config: GameInfo[]
+                try {
+                    new_config = await db.updateGame(this.id, message.config);
+                    if (new_config.length === 0) {
+                        logger.error(`game ${this.id} not found in database after updating`);
+                        throw new Error("game not found in database");
+                    }
+                } catch (err) {
+                    logger.warn(err);
+                    this.#sendToAllPlayers({
+                        category: 'config_update',
+                        game_config: {
+                            num_rounds: this.config.num_rounds,
+                            pre_bid_timeout: this.config.pre_bid_timeout,
+                            post_bid_timeout: this.config.post_bid_timeout,
+                            demo_timeout: this.config.demo_timeout
+                        },
+                        log: "config failed to update. check config values"
+                    })
+                    return;
+                }
+
+                this.config = new_config[0];
+
+                this.#sendToAllPlayers({
+                    category: 'config_update',
+                    game_config: message.config
+                });
+
+                break;
+            }
             case 'start': {
                 if (this.#state.phase !== 'join' || from_uuid !== this.host_uuid) {
                     logger.warn(`rejecting start message: ${JSON.stringify(message)}`);
                     return;
                 }
 
+                let new_config: GameInfo[];
                 try {
-                    await db.updateGame(this.id, {
-                        time_started: Date.now().toString(),
-                        ...message.config
+                    new_config = await db.selectFromGame({
+                        column: "id",
+                        equals: this.id,
                     });
+                    if (new_config.length === 0) {
+                        logger.error(`game ${this.id} not found in database`);
+                        throw new Error("game not found in database");
+                    }
                 } catch (err) {
                     logger.warn(err);
                     this.#sendToAllPlayers({
-                        category: 'log',
-                        log: "starting game failed. check config"
-                    });
+                        category: "log",
+                        log: "game failed to start"
+                    })
                     return;
                 }
+
+                this.config = new_config[0];
 
                 logger.info(`starting game ${this.id}`);
 
