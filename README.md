@@ -1,6 +1,7 @@
 # Deflecting Drones API Server
 
-The API Server for [Deflecting Drones](https://github.com/whirlwindaster/deflecting-drones). Running on Deno.
+The API Server for [Deflecting Drones](https://github.com/whirlwindaster/deflecting-drones). Running
+on Deno.
 
 ## API Docs
 

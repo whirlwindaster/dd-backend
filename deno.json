@@ -1,11 +1,16 @@
 {
-  "imports": {
-    "$std/": "https://deno.land/std@0.215.0/",
-    "oak/": "https://deno.land/x/oak@v13.1.0/",
-    "cors/": "https://deno.land/x/cors@v1.2.2/",
-    "supabase": "https://esm.sh/@supabase/supabase-js@2.38.5"
-  },
-  "tasks": {
-    "start": "deno run --allow-net --allow-write --allow-read --allow-env index.ts"
-  }
+    "imports": {
+        "$std/": "https://deno.land/std@0.215.0/",
+        "oak/": "https://deno.land/x/oak@v13.1.0/",
+        "cors/": "https://deno.land/x/cors@v1.2.2/",
+        "supabase": "https://esm.sh/@supabase/supabase-js@2.38.5"
+    },
+    "tasks": {
+        "start": "deno run --allow-net --allow-write --allow-read --allow-env index.ts"
+    },
+    "fmt": {
+        "lineWidth": 100,
+        "indentWidth": 4,
+        "singleQuote": true
+    }
 }
