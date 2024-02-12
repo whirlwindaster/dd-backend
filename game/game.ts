@@ -324,6 +324,7 @@ export class Game {
         this.#deletePlayer(from_uuid);
 
         if (this.players.size === 0) {
+          logger.warn(`game ${this.id} empty, deleting`);
           this.delete();
         }
         break;
