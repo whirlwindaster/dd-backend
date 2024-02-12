@@ -153,6 +153,16 @@ export class Game {
     }
     this.#state.phase = "demonstrate";
     this.#state.bid = this.bids.pop()!;
+    if (!this.players.has(this.#state.bid.uuid)) {
+      this.#sendToAllPlayers({
+        category: "demonstrator",
+        name: "",
+        moves: 0,
+        log: "skipping bid of disconnected player",
+      });
+      this.demoPhase;
+      return;
+    }
     this.#sendToAllPlayers({
       category: "demonstrator",
       name: this.players.get(this.#state.bid.uuid)!.name,

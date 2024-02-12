@@ -56,7 +56,7 @@ app.use(router.routes());
 app.use(router.allowedMethods());
 
 app.addEventListener("listen", () => {
-  logger.info(`Listening on https://dd-api.whirlwinda.st}`);
+  logger.info(`Listening on https://dd-api.whirlwinda.st`);
 });
 
 await app.listen({ port: 443, secure: true, cert: Deno.readTextFileSync(Deno.env.get("CERT_PATH") || ""), key: Deno.readTextFileSync(Deno.env.get("KEY_PATH") || "") });
