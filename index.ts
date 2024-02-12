@@ -1,20 +1,21 @@
 import { get_ws, post_create, post_join } from "./handlers/handle_routes.ts";
+import { toMilliseconds } from "./lib/helpers.ts";
 import { Application, Router } from "oak/mod.ts";
 import { oakCors } from "cors/mod.ts";
 import * as log from "$std/log/mod.ts"
 import "$std/dotenv/load.ts";
 
-
+const logFileHandler = new log.RotatingFileHandler("INFO", {
+  filename: './logs/log.txt',
+  maxBytes: 1000000,
+  maxBackupCount: 5,
+  formatter: (record) => `${record.datetime.toUTCString()} ${record.level} ${record.msg}`
+});
 log.setup({
   handlers: {
     console: new log.ConsoleHandler("DEBUG"),
     
-    file: new log.RotatingFileHandler("INFO", {
-      filename: './logs/log.txt',
-      maxBytes: 1000000,
-      maxBackupCount: 5,
-      formatter: (record) => `${record.datetime.toUTCString()} ${record.level} ${record.msg}`
-    })
+    file: logFileHandler
   },
   
   loggers: {
@@ -33,6 +34,7 @@ log.setup({
   }
 });
 export const logger = log.getLogger(Deno.env.get("ENVIRONMENT"));
+setInterval(() => { logFileHandler.flush(); }, toMilliseconds(30));
 
 export const ws_uuid_map = new Map<WebSocket, string>();
 

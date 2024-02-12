@@ -126,7 +126,7 @@ export class Game {
   //#################################################################################//
   // PHILOSOPHY: the phase functions shall be able to run a complete game without outside intervention.
   setupRound() {
-    if (this.#state.round >= this.config.num_rounds || this.goalStack.empty()) {
+    if (this.#state.round >= this.config.num_rounds || this.players.size === 0 || this.goalStack.empty()) {
       this.endGame();
       return;
     }
@@ -322,11 +322,6 @@ export class Game {
           add: false,
         });
         this.#deletePlayer(from_uuid);
-
-        if (this.players.size === 0) {
-          logger.warn(`game ${this.id} empty, deleting`);
-          this.delete();
-        }
         break;
       }
     }
