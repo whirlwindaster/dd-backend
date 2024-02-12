@@ -115,10 +115,61 @@ export class Game {
     this.players.forEach((p) => p.disconnect);
   }
 
+  m_setTimeout(
+    callback: () => void,
+    time: number,
+  ) {
+    clearTimeout(this.#state.timeout_id);
+    this.#state.timeout_id = setTimeout(callback, time);
+    this.#sendToAllPlayers({
+      category: "timer",
+      seconds: toSeconds(time),
+    });
+  }
+
+  m_moveRobot(color: RobotColor, direction: Direction) {
+    const new_coord = this.board.moveRobot(color, direction);
+    if (!new_coord) {
+      return;
+    }
+
+    this.#sendToAllPlayers({
+      category: "robot_update",
+      robots: [[color, new_coord]],
+    });
+  }
+
+  sendRobotPositions() {
+    this.#sendToAllPlayers({
+      category: "robot_update",
+      robots: Object.entries(this.board.current_positions) as [
+        RobotColor,
+        Coordinate,
+      ][],
+    });
+  }
+
+  getWinners(): Player[] {
+    const players_arr = [...this.players.values()];
+    if (players_arr.length === 0) return [];
+
+    let winners = [players_arr[0]];
+
+    for (let i = 1; i < players_arr.length; i++) {
+      if (players_arr[i].score > winners[0].score) {
+        winners = [players_arr[i]];
+      } else if (players_arr[i].score === winners[0].score) {
+        winners.push(players_arr[i]);
+      }
+    }
+
+    return winners;
+  }
+
   //#################################################################################//
   // Section: Game Event Handlers                                                    //
   //#################################################################################//
-  // PHILOSOPHY: the phase functions shall be able to run a complete game without outside intervention.
+  // these functions should be able to run a full game by themselves
   setupRound() {
     if (this.#state.round >= this.config.num_rounds || this.players.size === 0 || this.goalStack.empty()) {
       this.endGame();
@@ -330,56 +381,5 @@ export class Game {
         break;
       }
     }
-  }
-
-  m_setTimeout(
-    callback: () => void,
-    time: number,
-  ) {
-    clearTimeout(this.#state.timeout_id);
-    this.#state.timeout_id = setTimeout(callback, time);
-    this.#sendToAllPlayers({
-      category: "timer",
-      seconds: toSeconds(time),
-    });
-  }
-
-  m_moveRobot(color: RobotColor, direction: Direction) {
-    const new_coord = this.board.moveRobot(color, direction);
-    if (!new_coord) {
-      return;
-    }
-
-    this.#sendToAllPlayers({
-      category: "robot_update",
-      robots: [[color, new_coord]],
-    });
-  }
-
-  sendRobotPositions() {
-    this.#sendToAllPlayers({
-      category: "robot_update",
-      robots: Object.entries(this.board.current_positions) as [
-        RobotColor,
-        Coordinate,
-      ][],
-    });
-  }
-
-  getWinners(): Player[] {
-    const players_arr = [...this.players.values()];
-    if (players_arr.length === 0) return [];
-
-    let winners = [players_arr[0]];
-
-    for (let i = 1; i < players_arr.length; i++) {
-      if (players_arr[i].score > winners[0].score) {
-        winners = [players_arr[i]];
-      } else if (players_arr[i].score === winners[0].score) {
-        winners.push(players_arr[i]);
-      }
-    }
-
-    return winners;
   }
 }
