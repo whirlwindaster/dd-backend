@@ -6,7 +6,6 @@ import { Body } from "oak/body.ts";
 import { CreateRouteContext, JoinRouteContext, WSRouteContext, DEFAULT_CONFIG, GameInsert } from "../lib/types.ts";
 import { decode } from "../lib/id_cipher.ts";
 import { logger } from "../index.ts"
-import { deleteGame } from "../lib/helpers.ts";
 
 async function unpackFields(body: Body): Promise<Record<string, string> | null> {
   let fields: Record<string, string> = {};
@@ -120,11 +119,7 @@ export const post_create = async (ctx: CreateRouteContext) => {
         is_host: true,
       }))[0];
 
-    const new_game = gameFactory(player_info, game_cfg);
-    new_game.idle_timeout = setTimeout(() => {
-      logger.warn(`deleting inactive game ${new_game.id}`);
-      deleteGame(new_game);
-    }, toMilliseconds(60 * 30));
+    gameFactory(player_info, game_cfg);
 
     ctx.response.status = 201;
     ctx.response.body = player_info.uuid;

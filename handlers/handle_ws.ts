@@ -1,6 +1,5 @@
-import * as db from "../lib/db.ts";
 import { Game } from "../game/game.ts";
-import { deleteGame, parseMessage, wsSend } from "../lib/helpers.ts";
+import { parseMessage, wsSend } from "../lib/helpers.ts";
 import { encode } from "../lib/id_cipher.ts";
 import {
   GenericMessageToAPI,
@@ -42,6 +41,7 @@ export const onMessage = (uuid: string, game: Game) => {
   return (m: MessageEvent) => {
     const message = parseMessage(m);
     if (!(MessageToAPISchemas.some((schema) => schema.safeParse(message).success))) {
+      logger.warn('message failed schema check');
       return;
     }
     game.gameEvent(uuid, message as GenericMessageToAPI);
@@ -49,19 +49,10 @@ export const onMessage = (uuid: string, game: Game) => {
 };
 
 export const onClose = (player_info: PlayerInfo, game: Game) => {
-  return async () => {
+  return () => {
     logger.info(`player ${player_info.name} left game ${game.id}`);
-    try {
-      await db.deleteFromPlayer(player_info.uuid);
-    } catch (err) {
-      logger.warn(err);
-    }
     game.gameEvent(player_info.uuid, {
       category: "leave",
     });
-
-    if (game.players.size === 0) {
-      await deleteGame(game);
-    }
   };
 };

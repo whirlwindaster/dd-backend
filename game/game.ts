@@ -36,7 +36,6 @@ export class Game {
   host_uuid: string;
   config: GameInsert;
   board: Board;
-  idle_timeout = 0;
   players = new Map<string, Player>();
   bids = new Stack<Bid>();
   goalStack: Stack<Goal>;
@@ -44,13 +43,8 @@ export class Game {
     phase: "join",
     round: 0,
     timeout_id: setTimeout(async () => {
-      logger.warn(`deleting inactive game ${this.id}`);
-      try {
-        await db.deleteFromGame(this.id)
-      } catch (err) {
-        logger.warn(err);
-      }
-      active_games.delete(this.id);
+      logger.warn(`deleting idle game ${this.id}`);
+      await this.delete()
     }, toMilliseconds(60 * 30)),
     goal: {
       color: "m",
@@ -85,14 +79,37 @@ export class Game {
     this.players.set(player_info.uuid, new Player(player_info, ws));
   }
 
-  delete() {
+  async delete() {
     logger.info(`deleting game ${this.id}`);
-    this.#closeAllConnetions();
+    
     clearTimeout(this.#state.timeout_id);
+
+    for (const [_, v] of this.players) {
+      try {
+        await this.#deletePlayer(v.uuid);
+      }
+      catch (err) {
+        logger.warn(err);
+      }
+    }
+    try {
+      await db.deleteFromGame(this.id);
+    } catch (err) {
+      logger.warn(err);
+    }
+
+    this.#closeAllConnetions();
     active_games.delete(this.id);
   }
 
-  deletePlayer(uuid: string) {
+  async #deletePlayer(uuid: string) {
+    try {
+      await db.deleteFromPlayer(uuid);
+    }
+    catch (err) {
+      logger.warn(err);
+    }
+    this.players.get(uuid)?.disconnect();
     this.players.delete(uuid);
   }
 
@@ -101,7 +118,6 @@ export class Game {
   }
 
   #closeAllConnetions() {
-    logger.info(`game ${this.id} closing`)
     this.players.forEach((p) => p.disconnect);
   }
 
@@ -170,10 +186,7 @@ export class Game {
     const winners = this.getWinners();
     switch (winners.length) {
       case 0: {
-        this.#sendToAllPlayers({
-          category: "log",
-          log: "where did everyone go?",
-        });
+        logger.warn(`no players at end of game ${this.id}`);
         break;
       }
       case 1: {
@@ -217,8 +230,9 @@ export class Game {
           logger.warn(`rejecting start message: ${JSON.stringify(message)}`);
           return;
         }
+        logger.info(`starting game ${this.id}`);
 
-        clearTimeout(this.idle_timeout);
+        clearTimeout(this.#state.timeout_id);
         this.#sendToAllPlayers({
           category: "start",
         });
@@ -307,7 +321,11 @@ export class Game {
           name: this.players.get(from_uuid)?.name || "",
           add: false,
         });
-        this.players.delete(from_uuid);
+        this.#deletePlayer(from_uuid);
+
+        if (this.players.size === 0) {
+          this.delete();
+        }
         break;
       }
     }
