@@ -9,7 +9,7 @@ const logFileHandler = new log.RotatingFileHandler("INFO", {
   filename: './logs/log.txt',
   maxBytes: 1000000,
   maxBackupCount: 5,
-  formatter: (record) => `${record.datetime.toUTCString()} ${record.level} ${record.msg}`
+  formatter: (record) => `${record.datetime.toUTCString()} ${record.levelName} ${record.msg}`
 });
 log.setup({
   handlers: {

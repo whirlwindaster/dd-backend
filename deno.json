@@ -6,6 +6,6 @@
     "supabase": "https://esm.sh/@supabase/supabase-js@2.38.5"
   },
   "tasks": {
-    "start": "deno run --allow-net --allow-read --allow-env --watch index.ts"
+    "start": "deno run --allow-net --allow-write --allow-read --allow-env index.ts"
   }
 }
