@@ -45,12 +45,17 @@ export interface CheckIn extends BaseMessageToPlayer {
     category: 'check_in';
     name: string;
     game_code: string;
+    round: number;
     is_host: boolean;
     game_config: GameConfig;
-    players: string[];
+    players: [string, number][];
     right_walls: Coordinate[];
     bottom_walls: Coordinate[];
     goals: Goal[];
+}
+export interface ConfigUpdate extends BaseMessageToPlayer {
+    category: 'config_update',
+    game_config: GameConfig;
 }
 export interface PlayerUpdate extends BaseMessageToPlayer {
     category: 'player_update';
@@ -100,18 +105,13 @@ export type GenericMessageToPlayer =
     | Timer
     | Start
     | NewRound
+    | ConfigUpdate
     | BidNotif
     | Demonstrator
     | Score;
 
 export interface StartRequest {
     category: 'start';
-    config?: {
-        num_rounds?: number;
-        pre_bid_timeout?: number;
-        post_bid_timeout?: number;
-        demo_timeout?: number;
-    }
 }
 export interface BidRequest {
     category: 'bid';
@@ -126,6 +126,10 @@ export interface ChatRequest {
     category: 'chat';
     msg: string;
 }
+export interface ConfigChangeRequest {
+    category: 'config'
+    config: GameConfig
+}
 export interface Leave {
     category: 'leave';
 }
@@ -134,17 +138,13 @@ export type GenericMessageToAPI =
     | BidRequest
     | MoveRequest
     | ChatRequest
+    | ConfigChangeRequest
     | Leave;
 
 const StartRequestSchema = z.object({
-    category: z.string().regex(/^start$/),
-    config: z.optional(z.object({
-        num_rounds: z.number(),
-        pre_bid_timeout: z.number(),
-        post_bid_timeout: z.number(),
-        demo_timeout: z.number(),
-    }).partial())
+    category: z.string().regex(/^start$/)
 });
+
 const BidRequestSchema = z.object({
     category: z.string().regex(/^bid$/),
     moves: z.number().gt(1),
@@ -154,6 +154,13 @@ const MoveRequestSchema = z.object({
     robot: z.string().regex(/^r|y|g|u|b$/),
     direction: z.string().regex(/^up|down|left|right$/),
 });
+const ConfigChangeRequestSchema = z.object({
+    category: z.string().regex(/^config$/),
+    num_rounds: z.number(),
+    pre_bid_timeout: z.number(),
+    post_bid_timeout: z.number(),
+    demo_timeout: z.number(),
+})
 const ChatRequestSchema = z.object({
     category: z.string().regex(/^chat$/),
     msg: z.string().max(200),
@@ -162,6 +169,7 @@ export const MessageToAPISchemas = [
     StartRequestSchema,
     BidRequestSchema,
     MoveRequestSchema,
+    ConfigChangeRequestSchema,
     ChatRequestSchema,
 ];
 
