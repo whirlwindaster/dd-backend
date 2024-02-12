@@ -25,7 +25,7 @@ log.setup({
     },
     "dev": {
       level: "DEBUG",
-      handlers: ["console", "file"]
+      handlers: ["console"]
     },
     "prod": {
       level: "INFO",
@@ -56,7 +56,9 @@ app.use(router.routes());
 app.use(router.allowedMethods());
 
 app.addEventListener("listen", () => {
-  logger.info(`Listening on https://dd-api.whirlwinda.st`);
+  logger.info(`Listening on 
+  ${Deno.env.get("ENVIRONMENT") === "prod" ? "https://dd-api.whirlwinda.st" : "http://localhost:8765"}
+  `);
 });
 
-await app.listen({ port: 443, secure: true, cert: Deno.readTextFileSync(Deno.env.get("CERT_PATH") || ""), key: Deno.readTextFileSync(Deno.env.get("KEY_PATH") || "") });
+await app.listen(Deno.env.get("ENVIRONMENT") === "prod" ? { port: 443, secure: true, cert: Deno.readTextFileSync(Deno.env.get("CERT_PATH") || ""), key: Deno.readTextFileSync(Deno.env.get("KEY_PATH") || "") } : { port: 8765});
