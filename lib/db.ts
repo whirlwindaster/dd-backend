@@ -9,6 +9,7 @@ import {
   PlayerInfo,
   PlayerInsert,
 } from "./types.ts";
+import { logger } from "../index.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_KEY = Deno.env.get("SUPABASE_KEY")!;
@@ -81,6 +82,7 @@ export async function deleteFromGame(id: number) {
     .eq("id", id);
 
   if (error) throw new Error(error.message);
+  logger.info(`deleted game ${id} from database`);
 }
 
 export async function deleteFromPlayer(uuid: string) {
@@ -90,6 +92,7 @@ export async function deleteFromPlayer(uuid: string) {
     .eq("uuid", uuid);
 
   if (error) throw new Error(error.message);
+  logger.info(`deleted player ${uuid} from database`);
 }
 
 export async function startGame(id: number) {
