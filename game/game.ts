@@ -80,25 +80,19 @@ export class Game {
   }
 
   async delete() {
+    // players will be deleted when their game is deleted
     logger.info(`deleting game ${this.id}`);
     
-    clearTimeout(this.#state.timeout_id);
-
-    for (const [_, v] of this.players) {
-      try {
-        await this.#deletePlayer(v.uuid);
-      }
-      catch (err) {
-        logger.warn(err);
-      }
-    }
     try {
       await db.deleteFromGame(this.id);
     } catch (err) {
       logger.warn(err);
     }
 
+    clearTimeout(this.#state.timeout_id);
+
     this.#closeAllConnetions();
+
     active_games.delete(this.id);
   }
 
