@@ -7,6 +7,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
 
+## [0.1.0] - 2023-02-13
+
+### Added
+
+- Change config after game created
+- Join mid game
+
+### Fixed
+
+- Players not disconnected at end of game
+
 ## [0.0.1] - 2023-02-12
 
 ### Added

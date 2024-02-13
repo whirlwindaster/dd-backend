@@ -36,7 +36,7 @@ export class Game {
     host_uuid: string;
     config: GameInfo;
     board: Board;
-    round= 0;
+    round = 0;
     players = new Map<string, Player>();
     bids = new Stack<Bid>();
     goalStack: Stack<Goal>;
