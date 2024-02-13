@@ -97,7 +97,7 @@ export async function deleteFromPlayer(uuid: string) {
 }
 
 export async function updateGame(id: number, update: GameDBUpdate) {
-    if (update.id || update.board_setup_num) throw new Error("invalid update");
+    if (update.id || update.board_setup_num) throw new Error('invalid update');
 
     const { data, error } = await supabase_client
         .from('game')

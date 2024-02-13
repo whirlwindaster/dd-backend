@@ -3,12 +3,7 @@ import { active_games, gameFactory } from '../game/game.ts';
 import { onClose, onMessage, onOpen } from './handle_ws.ts';
 import { toMilliseconds } from '../lib/helpers.ts';
 import { Body } from 'oak/body.ts';
-import {
-    CreateRouteContext,
-    GameInsert,
-    JoinRouteContext,
-    WSRouteContext,
-} from '../lib/types.ts';
+import { CreateRouteContext, GameInsert, JoinRouteContext, WSRouteContext } from '../lib/types.ts';
 import { decode } from '../lib/id_cipher.ts';
 import { logger } from '../index.ts';
 
