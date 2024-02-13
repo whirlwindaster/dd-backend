@@ -12,6 +12,7 @@ export const onOpen = (player_info: PlayerInfo, game: Game, ws: WebSocket) => {
         wsSend(ws, {
             name: player_info.name,
             category: 'check_in',
+            round: 0,
             game_config: {
                 num_rounds: game.config.num_rounds,
                 pre_bid_timeout: game.config.pre_bid_timeout,
@@ -31,6 +32,7 @@ export const onOpen = (player_info: PlayerInfo, game: Game, ws: WebSocket) => {
 export const onMessage = (uuid: string, game: Game) => {
     return (m: MessageEvent) => {
         const message = parseMessage(m);
+        logger.debug(`got message ${JSON.stringify(message)}`);
         if (!(MessageToAPISchemas.some((schema) => schema.safeParse(message).success))) {
             logger.warn('message failed schema check');
             return;

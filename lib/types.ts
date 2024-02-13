@@ -156,10 +156,12 @@ const MoveRequestSchema = z.object({
 });
 const ConfigChangeRequestSchema = z.object({
     category: z.string().regex(/^config$/),
-    num_rounds: z.number(),
-    pre_bid_timeout: z.number(),
-    post_bid_timeout: z.number(),
-    demo_timeout: z.number(),
+    config: z.object({
+        num_rounds: z.number(),
+        pre_bid_timeout: z.number(),
+        post_bid_timeout: z.number(),
+        demo_timeout: z.number(),
+    }),
 })
 const ChatRequestSchema = z.object({
     category: z.string().regex(/^chat$/),
