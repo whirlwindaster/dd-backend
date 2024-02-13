@@ -111,7 +111,7 @@ export class Game {
     }
 
     #closeAllConnetions() {
-        this.players.forEach((p) => p.disconnect);
+        this.players.forEach((p) => p.disconnect());
     }
 
     m_setTimeout(
@@ -284,15 +284,25 @@ export class Game {
             case 'config': {
                 if (this.#state.phase !== 'join' || from_uuid !== this.host_uuid) {
                     logger.warn(`rejecting config message: ${JSON.stringify(message)}`);
+                    this.#sendToAllPlayers({
+                        category: 'config_update',
+                        game_config: {
+                            num_rounds: this.config.num_rounds,
+                            pre_bid_timeout: this.config.pre_bid_timeout,
+                            post_bid_timeout: this.config.post_bid_timeout,
+                            demo_timeout: this.config.demo_timeout,
+                        },
+                        log: 'config failed to update. check config values',
+                    });
                     return;
                 }
 
-                let new_config: GameInfo[]
+                let new_config: GameInfo[];
                 try {
                     new_config = await db.updateGame(this.id, message.config);
                     if (new_config.length === 0) {
                         logger.error(`game ${this.id} not found in database after updating`);
-                        throw new Error("game not found in database");
+                        throw new Error('game not found in database');
                     }
                 } catch (err) {
                     logger.warn(err);
@@ -302,10 +312,10 @@ export class Game {
                             num_rounds: this.config.num_rounds,
                             pre_bid_timeout: this.config.pre_bid_timeout,
                             post_bid_timeout: this.config.post_bid_timeout,
-                            demo_timeout: this.config.demo_timeout
+                            demo_timeout: this.config.demo_timeout,
                         },
-                        log: "config failed to update. check config values"
-                    })
+                        log: 'config failed to update. check config values',
+                    });
                     return;
                 }
 
@@ -313,7 +323,7 @@ export class Game {
 
                 this.#sendToAllPlayers({
                     category: 'config_update',
-                    game_config: message.config
+                    game_config: message.config,
                 });
 
                 break;
@@ -327,19 +337,19 @@ export class Game {
                 let new_config: GameInfo[];
                 try {
                     new_config = await db.selectFromGame({
-                        column: "id",
+                        column: 'id',
                         equals: this.id,
                     });
                     if (new_config.length === 0) {
                         logger.error(`game ${this.id} not found in database`);
-                        throw new Error("game not found in database");
+                        throw new Error('game not found in database');
                     }
                 } catch (err) {
                     logger.warn(err);
                     this.#sendToAllPlayers({
-                        category: "log",
-                        log: "game failed to start"
-                    })
+                        category: 'log',
+                        log: 'game failed to start',
+                    });
                     return;
                 }
 

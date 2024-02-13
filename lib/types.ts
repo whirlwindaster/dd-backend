@@ -54,7 +54,7 @@ export interface CheckIn extends BaseMessageToPlayer {
     goals: Goal[];
 }
 export interface ConfigUpdate extends BaseMessageToPlayer {
-    category: 'config_update',
+    category: 'config_update';
     game_config: GameConfig;
 }
 export interface PlayerUpdate extends BaseMessageToPlayer {
@@ -127,8 +127,8 @@ export interface ChatRequest {
     msg: string;
 }
 export interface ConfigChangeRequest {
-    category: 'config'
-    config: GameConfig
+    category: 'config';
+    config: GameConfig;
 }
 export interface Leave {
     category: 'leave';
@@ -142,7 +142,7 @@ export type GenericMessageToAPI =
     | Leave;
 
 const StartRequestSchema = z.object({
-    category: z.string().regex(/^start$/)
+    category: z.string().regex(/^start$/),
 });
 
 const BidRequestSchema = z.object({
@@ -162,7 +162,7 @@ const ConfigChangeRequestSchema = z.object({
         post_bid_timeout: z.number(),
         demo_timeout: z.number(),
     }),
-})
+});
 const ChatRequestSchema = z.object({
     category: z.string().regex(/^chat$/),
     msg: z.string().max(200),
@@ -241,89 +241,89 @@ export type Json =
     | { [key: string]: Json | undefined }
     | Json[];
 
-    export type Database = {
-        public: {
-          Tables: {
+export type Database = {
+    public: {
+        Tables: {
             game: {
-              Row: {
-                board_setup_num: number
-                demo_timeout: number
-                id: number
-                num_rounds: number
-                post_bid_timeout: number
-                pre_bid_timeout: number
-                time_created: string | null
-                time_started: string | null
-              }
-              Insert: {
-                board_setup_num?: number
-                demo_timeout?: number
-                id?: number
-                num_rounds?: number
-                post_bid_timeout?: number
-                pre_bid_timeout?: number
-                time_created?: string | null
-                time_started?: string | null
-              }
-              Update: {
-                board_setup_num?: number
-                demo_timeout?: number
-                id?: number
-                num_rounds?: number
-                post_bid_timeout?: number
-                pre_bid_timeout?: number
-                time_created?: string | null
-                time_started?: string | null
-              }
-              Relationships: []
-            }
+                Row: {
+                    board_setup_num: number;
+                    demo_timeout: number;
+                    id: number;
+                    num_rounds: number;
+                    post_bid_timeout: number;
+                    pre_bid_timeout: number;
+                    time_created: string | null;
+                    time_started: string | null;
+                };
+                Insert: {
+                    board_setup_num?: number;
+                    demo_timeout?: number;
+                    id?: number;
+                    num_rounds?: number;
+                    post_bid_timeout?: number;
+                    pre_bid_timeout?: number;
+                    time_created?: string | null;
+                    time_started?: string | null;
+                };
+                Update: {
+                    board_setup_num?: number;
+                    demo_timeout?: number;
+                    id?: number;
+                    num_rounds?: number;
+                    post_bid_timeout?: number;
+                    pre_bid_timeout?: number;
+                    time_created?: string | null;
+                    time_started?: string | null;
+                };
+                Relationships: [];
+            };
             player: {
-              Row: {
-                game_id: number
-                id: number
-                is_host: boolean
-                name: string
-                uuid: string
-              }
-              Insert: {
-                game_id: number
-                id?: number
-                is_host?: boolean
-                name: string
-                uuid?: string
-              }
-              Update: {
-                game_id?: number
-                id?: number
-                is_host?: boolean
-                name?: string
-                uuid?: string
-              }
-              Relationships: [
-                {
-                  foreignKeyName: "player_game_id_fkey"
-                  columns: ["game_id"]
-                  isOneToOne: false
-                  referencedRelation: "game"
-                  referencedColumns: ["id"]
-                }
-              ]
-            }
-          }
-          Views: {
-            [_ in never]: never
-          }
-          Functions: {
-            [_ in never]: never
-          }
-          Enums: {
-            [_ in never]: never
-          }
-          CompositeTypes: {
-            [_ in never]: never
-          }
-        }
-      }
+                Row: {
+                    game_id: number;
+                    id: number;
+                    is_host: boolean;
+                    name: string;
+                    uuid: string;
+                };
+                Insert: {
+                    game_id: number;
+                    id?: number;
+                    is_host?: boolean;
+                    name: string;
+                    uuid?: string;
+                };
+                Update: {
+                    game_id?: number;
+                    id?: number;
+                    is_host?: boolean;
+                    name?: string;
+                    uuid?: string;
+                };
+                Relationships: [
+                    {
+                        foreignKeyName: 'player_game_id_fkey';
+                        columns: ['game_id'];
+                        isOneToOne: false;
+                        referencedRelation: 'game';
+                        referencedColumns: ['id'];
+                    },
+                ];
+            };
+        };
+        Views: {
+            [_ in never]: never;
+        };
+        Functions: {
+            [_ in never]: never;
+        };
+        Enums: {
+            [_ in never]: never;
+        };
+        CompositeTypes: {
+            [_ in never]: never;
+        };
+    };
+};
 
 export type PlayerInfo = Database['public']['Tables']['player']['Row'];
 export type PlayerInsert = Database['public']['Tables']['player']['Insert'];
