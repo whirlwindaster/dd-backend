@@ -177,7 +177,6 @@ export const MessageToAPISchemas = [
 
 export interface GameState {
     phase: GamePhase;
-    round: number;
     timeout_id: number;
     goal: Goal;
     bid: Bid;

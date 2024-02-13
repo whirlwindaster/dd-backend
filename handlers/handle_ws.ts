@@ -12,7 +12,7 @@ export const onOpen = (player_info: PlayerInfo, game: Game, ws: WebSocket) => {
         wsSend(ws, {
             name: player_info.name,
             category: 'check_in',
-            round: 0,
+            round: game.round,
             game_config: {
                 num_rounds: game.config.num_rounds,
                 pre_bid_timeout: game.config.pre_bid_timeout,

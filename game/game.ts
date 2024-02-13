@@ -36,12 +36,12 @@ export class Game {
     host_uuid: string;
     config: GameInfo;
     board: Board;
+    round= 0;
     players = new Map<string, Player>();
     bids = new Stack<Bid>();
     goalStack: Stack<Goal>;
     #state: GameState = {
         phase: 'join',
-        round: 0,
         timeout_id: setTimeout(async () => {
             logger.warn(`deleting idle game ${this.id}`);
             await this.delete();
@@ -171,7 +171,7 @@ export class Game {
     // these functions should be able to run a full game by themselves
     setupRound() {
         if (
-            this.#state.round >= this.config.num_rounds || this.players.size === 0 ||
+            this.round >= this.config.num_rounds || this.players.size === 0 ||
             this.goalStack.empty()
         ) {
             this.endGame();
@@ -180,13 +180,13 @@ export class Game {
         this.sendRobotPositions();
         this.board.saveRobotPositions();
         this.bids.clear();
-        this.#state.round++;
+        this.round++;
         this.#state.goal = this.goalStack.pop()!;
         this.bidPhase();
         this.#sendToAllPlayers({
             category: 'new_round',
             goal: this.#state.goal,
-            log: `beginning round ${this.#state.round}`,
+            log: `beginning round ${this.round}`,
         });
     }
     bidPhase() {
